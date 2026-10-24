@@ -1,6 +1,6 @@
-# Windows PC Cleaner — Scope
+# Simpli Sweep — Scope
 
-Status: draft, 2026-10-23. Working name only; final name lives in app settings / build config, not in code.
+Status: draft, 2026-10-23. Name: Simpli Sweep (decided 2026-10-24); it lives in build config, not in code.
 
 ## 1. Goal
 
@@ -122,6 +122,6 @@ Core is UI-free so the CLI, UI and tests all share it.
 ## 11. Open decisions
 
 1. ~~Stack~~ — **Decided 2026-10-24: C# / .NET 10 + WPF.**
-2. Final product name (check for trademark conflicts; avoid "CCleaner"-like names).
+2. ~~Name~~ — **Decided 2026-10-24: Simpli Sweep** (repo `simpli-software/simpli-sweep`).
 3. ~~License~~ — **Decided 2026-10-24: MIT.**
 4. ~~winapp2~~ — **Decided 2026-10-24: not in v1; import ships in v1.1 behind an "advanced" toggle with CC-BY-SA attribution.**

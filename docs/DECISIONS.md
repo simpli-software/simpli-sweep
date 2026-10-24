@@ -20,9 +20,11 @@ services; this is a local Windows desktop app with no backend, tenants, database
   winapp2 (CC-BY-SA-4.0) arrives behind an "advanced" toggle with attribution.
 - **Approved by:** Dale, 2026-10-24.
 
-## 2026-10-24: Placeholder product name
-- Display name comes from `<Product>` in `Directory.Build.props`, never from code. Real name to be
-  chosen before v1.0 / before publishing to github.com/simpli-software.
+## 2026-10-24: Product name "Simpli Sweep"
+- "Simpli Clean" was rejected: Simplitec GmbH already ships a Windows cleaner called simpliclean.
+  A web search found no software named Simpli Sweep (no formal trademark search done).
+- Display name comes from `<Product>` in `Directory.Build.props`, never from code.
+- **Approved by:** Dale, 2026-10-24.
 
 ## 2026-10-24: No restore point for cache cleaning
 - **Why:** SCOPE.md §7 asks for a restore point before system-level actions. Restore points do not

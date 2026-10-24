@@ -4,8 +4,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <!-- Display name comes from here, not from code. Placeholder until the product is named. -->
-    <Product>PC Cleaner</Product>
+    <!-- Display name comes from here, not from code. -->
+    <Product>Simpli Sweep</Product>
+    <Company>Simpli Software</Company>
     <Version>0.1.0</Version>
   </PropertyGroup>
 </Project>
