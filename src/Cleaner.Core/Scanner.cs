@@ -1,3 +1,5 @@
+using System.IO.Enumeration;
+
 namespace Cleaner.Core;
 
 /// <summary>Finds what each rule would delete. Read-only: never modifies the file system.</summary>
@@ -26,8 +28,13 @@ public sealed class Scanner
         _isElevated = isElevated;
     }
 
-    public ScanReport Scan(IEnumerable<CleanRule> rules, CancellationToken ct = default) =>
-        new(rules.Select(r => ScanRule(r, ct)).ToList());
+    /// <param name="progress">Receives each rule just before it is scanned.</param>
+    public ScanReport Scan(IEnumerable<CleanRule> rules, IProgress<CleanRule>? progress = null, CancellationToken ct = default) =>
+        new(rules.Select(r =>
+        {
+            progress?.Report(r);
+            return ScanRule(r, ct);
+        }).ToList());
 
     public RuleScanResult ScanRule(CleanRule rule, CancellationToken ct = default)
     {
@@ -89,6 +96,7 @@ public sealed class Scanner
     private IEnumerable<FileEntry> EnumerateFiles(string root, RuleTarget target, CancellationToken ct)
     {
         var cutoff = _clock.GetUtcNow().UtcDateTime.AddHours(-target.MinAgeHours);
+        var removeEmpty = target.RemoveEmptyDirs && target.Recursive;
         var pending = new Stack<string>();
         pending.Push(root);
 
@@ -97,30 +105,40 @@ public sealed class Scanner
             ct.ThrowIfCancellationRequested();
             var dir = pending.Pop();
 
-            foreach (var pattern in target.Patterns)
+            // One listing per folder gives files (with size and time) and subfolders together.
+            foreach (var entry in SafeEnumerate(() => new DirectoryInfo(dir).EnumerateFileSystemInfos("*", Shallow)))
             {
-                foreach (var path in SafeEnumerate(() => Directory.EnumerateFiles(dir, pattern, Shallow)))
+                if (entry is DirectoryInfo sub)
                 {
-                    FileInfo info;
-                    try { info = new FileInfo(path); }
-                    catch (IOException) { continue; }
-
-                    if (info.LastWriteTimeUtc > cutoff || !_guard.IsAllowedFile(path, root))
-                        continue;
-
-                    yield return new FileEntry(path, root, info.Length, info.LastWriteTimeUtc, target.MinAgeHours, target.RemoveEmptyDirs && target.Recursive);
+                    if (target.Recursive)
+                        pending.Push(sub.FullName);
+                    continue;
                 }
-            }
 
-            if (target.Recursive)
-            {
-                foreach (var sub in SafeEnumerate(() => Directory.EnumerateDirectories(dir, "*", Shallow)))
-                    pending.Push(sub);
+                var file = (FileInfo)entry;
+                if (!MatchesAny(file.Name, target.Patterns)
+                    || file.LastWriteTimeUtc > cutoff
+                    || !_guard.IsAllowedFile(file.FullName, root))
+                {
+                    continue;
+                }
+
+                yield return new FileEntry(file.FullName, root, file.Length, file.LastWriteTimeUtc, target.MinAgeHours, removeEmpty);
             }
         }
     }
 
-    private static IEnumerable<string> SafeEnumerate(Func<IEnumerable<string>> source)
+    private static bool MatchesAny(string name, IReadOnlyList<string> patterns)
+    {
+        foreach (var pattern in patterns)
+        {
+            if (FileSystemName.MatchesSimpleExpression(pattern, name, ignoreCase: true))
+                return true;
+        }
+        return false;
+    }
+
+    private static IEnumerable<T> SafeEnumerate<T>(Func<IEnumerable<T>> source)
     {
         try { return source().ToList(); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return []; }

@@ -20,8 +20,8 @@ foreach (var r in report.Results)
 {
     var detail = r.Status switch
     {
-        RuleStatus.Ok when r.Rule.Kind == RuleKind.RecycleBin => $"{FormatBytes(r.Bytes),10}",
-        RuleStatus.Ok => $"{FormatBytes(r.Bytes),10}  {r.FileCount,7} files",
+        RuleStatus.Ok when r.Rule.Kind == RuleKind.RecycleBin => $"{ByteSize.Format(r.Bytes),10}",
+        RuleStatus.Ok => $"{ByteSize.Format(r.Bytes),10}  {r.FileCount,7} files",
         RuleStatus.NeedsAdmin => "      (run as administrator)",
         RuleStatus.NothingFound => "         -",
         _ => "      (rule error)",
@@ -32,19 +32,6 @@ foreach (var r in report.Results)
 
 Console.WriteLine(new string('-', 66));
 var defaultTotal = report.Results.Where(r => r.Rule.EnabledByDefault).Sum(r => r.Bytes);
-Console.WriteLine($"{"Total with default selection",-36} {FormatBytes(defaultTotal),10}");
+Console.WriteLine($"{"Total with default selection",-36} {ByteSize.Format(defaultTotal),10}");
 Console.WriteLine("Dry run: nothing was deleted.");
 return 0;
-
-static string FormatBytes(long bytes)
-{
-    string[] units = ["B", "KB", "MB", "GB", "TB"];
-    double value = bytes;
-    var unit = 0;
-    while (value >= 1024 && unit < units.Length - 1)
-    {
-        value /= 1024;
-        unit++;
-    }
-    return $"{value:0.#} {units[unit]}";
-}

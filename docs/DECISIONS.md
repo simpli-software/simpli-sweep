@@ -23,3 +23,13 @@ services; this is a local Windows desktop app with no backend, tenants, database
 ## 2026-10-24: Placeholder product name
 - Display name comes from `<Product>` in `Directory.Build.props`, never from code. Real name to be
   chosen before v1.0 / before publishing to github.com/simpli-software.
+
+## 2026-10-24: No restore point for cache cleaning
+- **Why:** SCOPE.md §7 asks for a restore point before system-level actions. Restore points do not
+  cover temp/cache files, take minutes, and Windows allows one per 24 h, so they add delay without
+  protecting anything here. They will be created before v2 system changes (DISM cleanup, tweaks).
+- **Needs:** Dale's OK.
+
+## 2026-10-24: Built-in WPF Fluent theme instead of WPF-UI
+- **Why:** .NET 10 WPF ships a Windows 11 theme (`ThemeMode="System"`, light/dark aware); no extra
+  dependency. It is flagged experimental (WPF0001, suppressed in the app project).

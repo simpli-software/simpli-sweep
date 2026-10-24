@@ -1,0 +1,96 @@
+<Window x:Class="Cleaner.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Cleaner.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
+        Width="760" Height="640" MinWidth="520" MinHeight="420"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.Resources>
+    <CollectionViewSource x:Key="Grouped" Source="{Binding Items}">
+      <CollectionViewSource.GroupDescriptions>
+        <PropertyGroupDescription PropertyName="Category" />
+      </CollectionViewSource.GroupDescriptions>
+    </CollectionViewSource>
+    <BooleanToVisibilityConverter x:Key="BoolToVis" />
+  </Window.Resources>
+
+  <Grid Margin="24,16,24,20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- Header -->
+    <DockPanel Grid.Row="0" Margin="0,0,0,12">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button Content="Restart as administrator" Margin="0,0,8,0"
+                Command="{Binding RestartAsAdminCommand}"
+                Visibility="{Binding NeedsAdmin, Converter={StaticResource BoolToVis}}"
+                ToolTip="Some Windows categories can only be cleaned with administrator rights." />
+        <Button Content="Scan again" Command="{Binding ScanCommand}" />
+      </StackPanel>
+      <StackPanel>
+        <TextBlock x:Name="TitleText" FontSize="24" FontWeight="SemiBold" />
+        <TextBlock Text="Free up space safely. You see everything before it is deleted." Opacity="0.75" />
+      </StackPanel>
+    </DockPanel>
+
+    <ProgressBar Grid.Row="1" Height="4" Margin="0,0,0,8" IsIndeterminate="True"
+                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+
+    <!-- Categories -->
+    <ListBox Grid.Row="2" ItemsSource="{Binding Source={StaticResource Grouped}}"
+             HorizontalContentAlignment="Stretch"
+             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+             AutomationProperties.Name="Cleaning categories">
+      <ListBox.GroupStyle>
+        <GroupStyle>
+          <GroupStyle.HeaderTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15" Margin="4,12,0,4" />
+            </DataTemplate>
+          </GroupStyle.HeaderTemplate>
+        </GroupStyle>
+      </ListBox.GroupStyle>
+      <ListBox.ItemTemplate>
+        <DataTemplate DataType="{x:Type vm:RuleItemViewModel}">
+          <Grid Margin="0,4">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <CheckBox Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"
+                      IsChecked="{Binding IsSelected}" IsEnabled="{Binding CanSelect}"
+                      AutomationProperties.Name="{Binding Name}" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+              <TextBlock Text="{Binding Name}" />
+              <TextBlock Text="{Binding Description}" Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="12,0,4,0">
+              <TextBlock Text="{Binding SizeText}" FontWeight="SemiBold" HorizontalAlignment="Right" />
+              <TextBlock Text="{Binding DetailText}" Opacity="0.7" FontSize="12" HorizontalAlignment="Right" />
+            </StackPanel>
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <!-- Footer -->
+    <DockPanel Grid.Row="3" Margin="0,16,0,0">
+      <Button DockPanel.Dock="Right" Content="Clean" MinWidth="120" Padding="16,6"
+              Style="{DynamicResource AccentButtonStyle}"
+              Command="{Binding CleanCommand}" />
+      <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedText}" FontWeight="SemiBold"
+                 VerticalAlignment="Center" Margin="12,0" />
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" VerticalAlignment="Center"
+                 AutomationProperties.LiveSetting="Polite" />
+    </DockPanel>
+  </Grid>
+</Window>
