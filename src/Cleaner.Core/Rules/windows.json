@@ -1,0 +1,85 @@
+// Built-in Windows rules. Every rule here needs a matching test in Cleaner.Core.Tests/BuiltInRuleTests.cs.
+[
+  {
+    "id": "user-temp",
+    "name": "Temporary files (your account)",
+    "description": "Files apps left in your temp folder more than a day ago.",
+    "category": "Windows",
+    "targets": [ { "path": "%TEMP%", "recursive": true, "minAgeHours": 24, "removeEmptyDirs": true } ]
+  },
+  {
+    "id": "windows-temp",
+    "name": "Temporary files (Windows)",
+    "description": "Files in the Windows temp folder older than a day.",
+    "category": "Windows",
+    "requiresAdmin": true,
+    "targets": [ { "path": "%WINDIR%\\Temp", "recursive": true, "minAgeHours": 24, "removeEmptyDirs": true } ]
+  },
+  {
+    "id": "recycle-bin",
+    "name": "Recycle Bin",
+    "description": "Permanently deletes everything in the Recycle Bin on all drives.",
+    "category": "Windows",
+    "kind": "RecycleBin"
+  },
+  {
+    "id": "thumbnail-cache",
+    "name": "Thumbnail and icon cache",
+    "description": "Explorer rebuilds these automatically. Files in use are skipped.",
+    "category": "Windows",
+    "targets": [
+      { "path": "%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer", "patterns": [ "thumbcache_*.db", "iconcache_*.db" ] }
+    ]
+  },
+  {
+    "id": "windows-update-cache",
+    "name": "Windows Update downloads",
+    "description": "Update installers already applied. Windows downloads them again if needed.",
+    "category": "Windows",
+    "requiresAdmin": true,
+    "targets": [ { "path": "%WINDIR%\\SoftwareDistribution\\Download", "recursive": true, "minAgeHours": 72, "removeEmptyDirs": true } ]
+  },
+  {
+    "id": "delivery-optimization",
+    "name": "Delivery Optimization cache",
+    "description": "Update pieces cached for sharing with other PCs.",
+    "category": "Windows",
+    "requiresAdmin": true,
+    "targets": [
+      { "path": "%WINDIR%\\ServiceProfiles\\NetworkService\\AppData\\Local\\Microsoft\\Windows\\DeliveryOptimization\\Cache", "recursive": true, "removeEmptyDirs": true }
+    ]
+  },
+  {
+    "id": "user-crash-dumps",
+    "name": "App crash dumps",
+    "description": "Memory dumps written when apps crash.",
+    "category": "Windows",
+    "targets": [ { "path": "%LOCALAPPDATA%\\CrashDumps", "patterns": [ "*.dmp" ] } ]
+  },
+  {
+    "id": "system-minidumps",
+    "name": "Windows crash dumps",
+    "description": "Small memory dumps written after blue-screen crashes.",
+    "category": "Windows",
+    "requiresAdmin": true,
+    "targets": [ { "path": "%WINDIR%\\Minidump", "patterns": [ "*.dmp" ] } ]
+  },
+  {
+    "id": "error-reports",
+    "name": "Error reports",
+    "description": "Windows Error Reporting files already sent or queued.",
+    "category": "Windows",
+    "targets": [
+      { "path": "%LOCALAPPDATA%\\Microsoft\\Windows\\WER\\ReportArchive", "recursive": true, "removeEmptyDirs": true },
+      { "path": "%LOCALAPPDATA%\\Microsoft\\Windows\\WER\\ReportQueue", "recursive": true, "removeEmptyDirs": true }
+    ]
+  },
+  {
+    "id": "directx-shader-cache",
+    "name": "DirectX shader cache",
+    "description": "Compiled graphics shaders. Games rebuild them (first launch may be slower).",
+    "category": "Windows",
+    "enabledByDefault": false,
+    "targets": [ { "path": "%LOCALAPPDATA%\\D3DSCache", "recursive": true, "removeEmptyDirs": true } ]
+  }
+]

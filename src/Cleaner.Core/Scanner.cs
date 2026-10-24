@@ -1,0 +1,134 @@
+namespace Cleaner.Core;
+
+/// <summary>Finds what each rule would delete. Read-only: never modifies the file system.</summary>
+public sealed class Scanner
+{
+    private static readonly EnumerationOptions Shallow = new()
+    {
+        RecurseSubdirectories = false,
+        IgnoreInaccessible = true,
+        AttributesToSkip = FileAttributes.ReparsePoint,
+        MatchCasing = MatchCasing.CaseInsensitive,
+    };
+
+    private readonly PathTokens _tokens;
+    private readonly SafetyGuard _guard;
+    private readonly IRecycleBin _recycleBin;
+    private readonly TimeProvider _clock;
+    private readonly bool _isElevated;
+
+    public Scanner(PathTokens tokens, SafetyGuard guard, IRecycleBin recycleBin, TimeProvider clock, bool isElevated)
+    {
+        _tokens = tokens;
+        _guard = guard;
+        _recycleBin = recycleBin;
+        _clock = clock;
+        _isElevated = isElevated;
+    }
+
+    public ScanReport Scan(IEnumerable<CleanRule> rules, CancellationToken ct = default) =>
+        new(rules.Select(r => ScanRule(r, ct)).ToList());
+
+    public RuleScanResult ScanRule(CleanRule rule, CancellationToken ct = default)
+    {
+        if (rule.RequiresAdmin && !_isElevated)
+            return new RuleScanResult(rule, RuleStatus.NeedsAdmin, [], 0);
+
+        if (rule.Kind == RuleKind.RecycleBin)
+        {
+            var (bytes, _) = _recycleBin.Query();
+            return new RuleScanResult(rule, bytes > 0 ? RuleStatus.Ok : RuleStatus.NothingFound, [], bytes);
+        }
+
+        var files = new List<FileEntry>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var target in rule.Targets)
+        {
+            var template = _tokens.Expand(target.Path);
+            if (template is null)
+                return new RuleScanResult(rule, RuleStatus.Invalid, [], 0);
+
+            foreach (var root in ExpandWildcardDirs(template))
+            {
+                ct.ThrowIfCancellationRequested();
+                if (!_guard.IsAllowedRoot(root))
+                    continue;
+
+                foreach (var file in EnumerateFiles(root, target, ct))
+                {
+                    if (seen.Add(file.Path))
+                        files.Add(file);
+                }
+            }
+        }
+
+        var total = files.Sum(f => f.Size);
+        return new RuleScanResult(rule, files.Count > 0 ? RuleStatus.Ok : RuleStatus.NothingFound, files, total);
+    }
+
+    /// <summary>Expands '*' / '?' in directory segments, skipping junctions and symlinks.</summary>
+    internal static IEnumerable<string> ExpandWildcardDirs(string template)
+    {
+        var full = Path.GetFullPath(template);
+        var rootPart = Path.GetPathRoot(full)!;
+        var segments = full[rootPart.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+
+        IEnumerable<string> current = [rootPart];
+        foreach (var segment in segments)
+        {
+            var seg = segment;
+            current = seg.IndexOfAny(['*', '?']) >= 0
+                ? current.SelectMany(dir => Directory.Exists(dir) ? Directory.EnumerateDirectories(dir, seg, Shallow) : [])
+                : current.Select(dir => Path.Combine(dir, seg));
+        }
+
+        return current.Where(d => Directory.Exists(d) && !IsReparsePoint(d));
+    }
+
+    private IEnumerable<FileEntry> EnumerateFiles(string root, RuleTarget target, CancellationToken ct)
+    {
+        var cutoff = _clock.GetUtcNow().UtcDateTime.AddHours(-target.MinAgeHours);
+        var pending = new Stack<string>();
+        pending.Push(root);
+
+        while (pending.Count > 0)
+        {
+            ct.ThrowIfCancellationRequested();
+            var dir = pending.Pop();
+
+            foreach (var pattern in target.Patterns)
+            {
+                foreach (var path in SafeEnumerate(() => Directory.EnumerateFiles(dir, pattern, Shallow)))
+                {
+                    FileInfo info;
+                    try { info = new FileInfo(path); }
+                    catch (IOException) { continue; }
+
+                    if (info.LastWriteTimeUtc > cutoff || !_guard.IsAllowedFile(path, root))
+                        continue;
+
+                    yield return new FileEntry(path, root, info.Length, info.LastWriteTimeUtc, target.MinAgeHours, target.RemoveEmptyDirs && target.Recursive);
+                }
+            }
+
+            if (target.Recursive)
+            {
+                foreach (var sub in SafeEnumerate(() => Directory.EnumerateDirectories(dir, "*", Shallow)))
+                    pending.Push(sub);
+            }
+        }
+    }
+
+    private static IEnumerable<string> SafeEnumerate(Func<IEnumerable<string>> source)
+    {
+        try { return source().ToList(); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return []; }
+    }
+
+    internal static bool IsReparsePoint(string path)
+    {
+        try { return File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return true; }
+    }
+}

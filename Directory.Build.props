@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Display name comes from here, not from code. Placeholder until the product is named. -->
+    <Product>PC Cleaner</Product>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+</Project>
