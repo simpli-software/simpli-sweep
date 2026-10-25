@@ -69,6 +69,14 @@ Requires the .NET 10 SDK.
 dotnet test
 ```
 
+To build the release files (installer, portable zip, checksums) into `artifacts/release/`:
+
+```
+./build/release.ps1 -Iscc "<path to Inno Setup's ISCC.exe>"
+```
+
+Without Inno Setup only the portable zip is built.
+
 ## Rules
 
 Cleaning rules are JSON files in `src/Cleaner.Core/Rules/`. Every rule must have a test in
