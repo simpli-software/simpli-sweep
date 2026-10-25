@@ -18,6 +18,7 @@ public sealed class DiskUsageViewModel : ObservableObject
 {
     private readonly DiskUsageScanner _scanner;
     private readonly IShell _shell;
+    private readonly string _windowsFolder;
     private CancellationTokenSource? _cts;
     private DriveChoice? _selectedDrive;
     private DiskUsageReport? _report;
@@ -25,10 +26,12 @@ public sealed class DiskUsageViewModel : ObservableObject
     private bool _isBusy;
     private string _status = "Pick a drive and press Scan to see what is using space.";
 
-    public DiskUsageViewModel(DiskUsageScanner scanner, IShell shell, IReadOnlyList<DriveChoice> drives)
+    /// <param name="windowsFolder">Used to explain that Windows folders share hard-linked files.</param>
+    public DiskUsageViewModel(DiskUsageScanner scanner, IShell shell, IReadOnlyList<DriveChoice> drives, string windowsFolder)
     {
         _scanner = scanner;
         _shell = shell;
+        _windowsFolder = Path.TrimEndingDirectorySeparator(windowsFolder);
         Drives = drives;
         _selectedDrive = drives.FirstOrDefault();
 
@@ -83,6 +86,26 @@ public sealed class DiskUsageViewModel : ObservableObject
     }
 
     public string CurrentPath => _current?.FullPath ?? "";
+
+    /// <summary>
+    /// Windows keeps one copy of many files but lists it in several folders (hard links), so
+    /// Windows and WinSxS look bigger than the space they use. Shown wherever the Windows folder is in view.
+    /// </summary>
+    public bool ShowWindowsNote => _current is not null && IsWindowsFolderInView(_current.FullPath);
+
+    public static string WindowsNote =>
+        "Windows shares many files between its folders, so Windows and WinSxS look bigger than the space they really use. "
+        + "Don't delete files from them by hand.";
+
+    private bool IsWindowsFolderInView(string current)
+    {
+        // The Windows folder is this folder, inside it, or somewhere below it (a drive root keeps its trailing separator).
+        var c = Path.TrimEndingDirectorySeparator(current);
+        var prefix = c.EndsWith(Path.DirectorySeparatorChar) ? c : c + Path.DirectorySeparatorChar;
+        return c.Equals(_windowsFolder, StringComparison.OrdinalIgnoreCase)
+            || _windowsFolder.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            || c.StartsWith(_windowsFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    }
 
     public async Task ScanAsync()
     {
@@ -147,6 +170,7 @@ public sealed class DiskUsageViewModel : ObservableObject
             Folders.Add(row);
 
         OnPropertyChanged(nameof(CurrentPath));
+        OnPropertyChanged(nameof(ShowWindowsNote));
         UpCommand.RaiseCanExecuteChanged();
     }
 }

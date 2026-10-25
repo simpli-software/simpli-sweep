@@ -23,7 +23,18 @@ public sealed class FolderNode
 
     public IReadOnlyList<FolderNode> Children => _children;
 
-    public string FullPath => Parent is null ? Name : Path.Combine(Parent.FullPath, Name);
+    /// <summary>Built by walking up the parents (no recursion, so very deep trees are fine).</summary>
+    public string FullPath
+    {
+        get
+        {
+            var names = new List<string>();
+            for (var n = this; n is not null; n = n.Parent)
+                names.Add(n.Name);
+            names.Reverse();
+            return Path.Combine([.. names]);
+        }
+    }
 
     internal FolderNode AddChild(string name)
     {
@@ -32,11 +43,18 @@ public sealed class FolderNode
         return child;
     }
 
-    internal void SortChildren()
+    /// <summary>Sorts every folder's children largest first, iteratively.</summary>
+    internal void SortTree()
     {
-        _children.Sort((a, b) => b.Size.CompareTo(a.Size));
-        foreach (var c in _children)
-            c.SortChildren();
+        var pending = new Stack<FolderNode>();
+        pending.Push(this);
+        while (pending.Count > 0)
+        {
+            var node = pending.Pop();
+            node._children.Sort((a, b) => b.Size.CompareTo(a.Size));
+            foreach (var c in node._children)
+                pending.Push(c);
+        }
     }
 }
 
@@ -74,42 +92,68 @@ public sealed class DiskUsageScanner
         var root = new FolderNode(Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootPath)), null);
         var state = new ScanState(_largestFileCount, progress);
 
-        ScanTree(root, state, depth: 0, ct);
-        root.SortChildren();
+        ScanTop(root, root.Name, state, depth: 0, ct);
+        root.SortTree();
         state.Report();
         return new DiskUsageReport(root, state.Largest(), state.Inaccessible);
     }
 
-    /// <summary>Folders this close to the root are scanned in parallel; deeper ones on the same thread.</summary>
+    /// <summary>Folders this close to the root are scanned in parallel; deeper subtrees on one thread each.</summary>
     private const int ParallelDepth = 4;
 
-    private static void ScanTree(FolderNode node, ScanState state, int depth, CancellationToken ct)
+    /// <summary>Recursion here is bounded by <see cref="ParallelDepth"/>; below it the walk is iterative.</summary>
+    private static void ScanTop(FolderNode node, string path, ScanState state, int depth, CancellationToken ct)
     {
-        var children = ScanFolder(node, state, ct).Select(node.AddChild).ToList();
+        if (depth >= ParallelDepth)
+        {
+            ScanSubtree(node, path, state, ct);
+            return;
+        }
 
-        if (depth < ParallelDepth && children.Count > 1)
-        {
-            Parallel.ForEach(
-                children,
-                new ParallelOptions { CancellationToken = ct, MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount) },
-                child => ScanTree(child, state, depth + 1, ct));
-        }
-        else
-        {
-            foreach (var child in children)
-                ScanTree(child, state, depth + 1, ct);
-        }
+        var children = ScanFolder(node, path, state, ct).Select(name => (node: node.AddChild(name), path: Path.Combine(path, name))).ToList();
+
+        Parallel.ForEach(
+            children,
+            new ParallelOptions { CancellationToken = ct, MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount) },
+            child => ScanTop(child.node, child.path, state, depth + 1, ct));
 
         // Children are complete here, so their totals are final.
-        foreach (var child in children)
+        foreach (var (child, _) in children)
         {
             node.Size += child.Size;
             node.FileCount += child.FileCount;
         }
     }
 
+    /// <summary>
+    /// Scans a whole subtree with an explicit stack, so folder depth can't overflow the call stack,
+    /// then adds sizes up from the deepest folders to the top.
+    /// </summary>
+    private static void ScanSubtree(FolderNode start, string startPath, ScanState state, CancellationToken ct)
+    {
+        var visited = new List<FolderNode>();
+        var pending = new Stack<(FolderNode Node, string Path)>();
+        pending.Push((start, startPath));
+
+        while (pending.Count > 0)
+        {
+            var (node, path) = pending.Pop();
+            visited.Add(node);
+            foreach (var name in ScanFolder(node, path, state, ct))
+                pending.Push((node.AddChild(name), Path.Combine(path, name)));
+        }
+
+        // Every folder appears after its parent, so walking backwards finishes children first.
+        for (var i = visited.Count - 1; i > 0; i--)
+        {
+            var node = visited[i];
+            node.Parent!.Size += node.Size;
+            node.Parent.FileCount += node.FileCount;
+        }
+    }
+
     /// <summary>Adds this folder's own files to <paramref name="node"/> and returns its subfolder names.</summary>
-    private static List<string> ScanFolder(FolderNode node, ScanState state, CancellationToken ct)
+    private static List<string> ScanFolder(FolderNode node, string path, ScanState state, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         var subfolders = new List<string>();
@@ -117,7 +161,7 @@ public sealed class DiskUsageScanner
 
         try
         {
-            foreach (var entry in new DirectoryInfo(node.FullPath).EnumerateFileSystemInfos("*", Shallow))
+            foreach (var entry in new DirectoryInfo(path).EnumerateFileSystemInfos("*", Shallow))
             {
                 if (entry is DirectoryInfo)
                 {

@@ -31,7 +31,9 @@ public sealed class WindowsShell : IShell
         // Windows paths can't contain quotes, so quoting is enough to keep this one argument.
         if (path.Contains('"'))
             return;
-        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = false })?.Dispose();
+        // Full path: never pick up an explorer.exe planted next to a portable copy of the app.
+        var explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+        Process.Start(new ProcessStartInfo(explorer, $"/select,\"{path}\"") { UseShellExecute = false })?.Dispose();
     }
 }
 

@@ -94,6 +94,40 @@ public sealed class DiskUsageScannerTests : IDisposable
     }
 
     [Fact]
+    public void Very_deep_folder_trees_do_not_crash()
+    {
+        // Deep trees are walked with an explicit stack below the first few levels, so depth can't
+        // overflow the call stack (a recursive walk crashed at ~6,600 levels). 600 levels keeps
+        // this test fast: Windows re-walks every level of a path on each open.
+        const int depth = 600;
+        var paths = new List<string>(depth);
+        var path = Path.Combine(Root, "deep");
+        for (var i = 0; i < depth; i++)
+        {
+            path = Path.Combine(path, "d");
+            paths.Add(path);
+        }
+        Directory.CreateDirectory(path);
+        File.WriteAllBytes(Path.Combine(path, "leaf.bin"), new byte[123]);
+
+        try
+        {
+            var report = new DiskUsageScanner().Scan(Root);
+
+            Assert.Equal(123, report.Root.Size);
+            Assert.Equal(123, report.Root.Children.Single().Size);
+            Assert.EndsWith("leaf.bin", report.LargestFiles.Single().Path);
+        }
+        finally
+        {
+            // Remove bottom-up: a recursive delete would hit the same depth problem.
+            File.Delete(Path.Combine(path, "leaf.bin"));
+            for (var i = paths.Count - 1; i >= 0; i--)
+                Directory.Delete(paths[i]);
+        }
+    }
+
+    [Fact]
     public void Cancellation_stops_the_scan()
     {
         _m.File(Path.Combine(Root, "a", "f.bin"));

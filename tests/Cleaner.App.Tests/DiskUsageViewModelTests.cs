@@ -15,7 +15,7 @@ public sealed class DiskUsageViewModelTests : IDisposable
     private string Drive => Path.Combine(_m.Root, "Drive");
 
     private DiskUsageViewModel Vm() =>
-        new(new DiskUsageScanner(largestFileCount: 5), _shell, [new DriveChoice(Drive, "Test", 0, 0)]);
+        new(new DiskUsageScanner(largestFileCount: 5), _shell, [new DriveChoice(Drive, "Test", 0, 0)], Path.Combine(Drive, "Windows"));
 
     [Fact]
     public async Task Scan_lists_folders_largest_first_with_a_row_for_loose_files()
@@ -76,6 +76,23 @@ public sealed class DiskUsageViewModelTests : IDisposable
         await vm.ScanAsync();
 
         Assert.False(vm.Folders.Single(f => f.Name == "Flat").CanOpen);
+    }
+
+    [Fact]
+    public async Task Hard_link_note_shows_only_where_the_Windows_folder_is_in_view()
+    {
+        _m.File(Path.Combine(Drive, "Windows", "WinSxS", "x", "a.dll"), bytes: 100);
+        _m.File(Path.Combine(Drive, "Games", "Steam", "b.pak"), bytes: 50);
+        var vm = Vm();
+        await vm.ScanAsync();
+        Assert.True(vm.ShowWindowsNote); // drive root contains Windows
+
+        vm.OpenFolderCommand.Execute(vm.Folders.Single(f => f.Name == "Games"));
+        Assert.False(vm.ShowWindowsNote);
+
+        vm.UpCommand.Execute(null);
+        vm.OpenFolderCommand.Execute(vm.Folders.Single(f => f.Name == "Windows"));
+        Assert.True(vm.ShowWindowsNote);
     }
 
     private sealed class FakeShell : IShell

@@ -42,7 +42,7 @@ public partial class App : Application
                 new StartupManager(new WindowsRegistryStore(), tokens, new WindowsShortcutResolver(), TimeProvider.System),
                 new WindowsFileTrust(),
                 elevation.IsElevated),
-            Disk = new DiskUsageViewModel(new DiskUsageScanner(), new WindowsShell(), FixedDrives()),
+            Disk = new DiskUsageViewModel(new DiskUsageScanner(), new WindowsShell(), FixedDrives(), tokens["WINDIR"]),
         };
 
         var window = new MainWindow { DataContext = viewModel };

@@ -238,8 +238,11 @@
             </DockPanel>
           </Grid>
 
-          <TextBlock Grid.Row="3" Margin="0,16,0,0" Text="{Binding Status}" TextWrapping="Wrap"
-                     AutomationProperties.LiveSetting="Polite" />
+          <StackPanel Grid.Row="3" Margin="0,16,0,0">
+            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+            <TextBlock Text="{x:Static vm:DiskUsageViewModel.WindowsNote}" TextWrapping="Wrap" Opacity="0.75" Margin="0,6,0,0"
+                       Visibility="{Binding ShowWindowsNote, Converter={StaticResource BoolToVis}}" />
+          </StackPanel>
         </Grid>
       </TabItem>
     </TabControl>
