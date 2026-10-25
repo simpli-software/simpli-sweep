@@ -51,6 +51,8 @@ public sealed class MainViewModel : ObservableObject
 
     private readonly StartupViewModel? _startup;
 
+    public DiskUsageViewModel? Disk { get; init; }
+
     public AsyncCommand ScanCommand { get; }
     public AsyncCommand CleanCommand { get; }
     public AsyncCommand RestartAsAdminCommand { get; }

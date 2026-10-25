@@ -16,6 +16,7 @@
       </CollectionViewSource.GroupDescriptions>
     </CollectionViewSource>
     <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    <vm:ByteSizeConverter x:Key="Bytes" />
   </Window.Resources>
 
   <Grid Margin="24,16,24,20">
@@ -147,6 +148,97 @@
           </ListBox>
 
           <TextBlock Grid.Row="2" Margin="0,16,0,0" Text="{Binding Status}" TextWrapping="Wrap"
+                     AutomationProperties.LiveSetting="Polite" />
+        </Grid>
+      </TabItem>
+      <!-- Disk (read-only) -->
+      <TabItem Header="Disk" DataContext="{Binding Disk}">
+        <Grid Margin="0,12,0,0">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <Button DockPanel.Dock="Right" Content="Cancel" Margin="8,0,0,0" Command="{Binding CancelCommand}"
+                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+            <Button DockPanel.Dock="Right" Content="Scan" Margin="8,0,0,0" Command="{Binding ScanCommand}" />
+            <ComboBox ItemsSource="{Binding Drives}" SelectedItem="{Binding SelectedDrive}"
+                      DisplayMemberPath="Display" AutomationProperties.Name="Drive" />
+          </DockPanel>
+
+          <DockPanel Grid.Row="1" Margin="0,0,0,8">
+            <Button DockPanel.Dock="Left" Content="Up" Margin="0,0,8,0" Command="{Binding UpCommand}" />
+            <TextBlock Text="{Binding CurrentPath}" VerticalAlignment="Center" FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis" />
+          </DockPanel>
+
+          <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="3*" />
+              <ColumnDefinition Width="12" />
+              <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Folders in the current folder, largest first -->
+            <ListBox Grid.Column="0" ItemsSource="{Binding Folders}" HorizontalContentAlignment="Stretch"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     AutomationProperties.Name="Largest folders">
+              <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:FolderRowViewModel}">
+                  <Grid Margin="0,2">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                      <TextBlock TextTrimming="CharacterEllipsis">
+                        <Hyperlink Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                   CommandParameter="{Binding}" IsEnabled="{Binding CanOpen}">
+                          <Run Text="{Binding Name, Mode=OneWay}" />
+                        </Hyperlink>
+                      </TextBlock>
+                      <ProgressBar Height="4" Margin="0,4,0,0" Maximum="100" Value="{Binding Percent, Mode=OneWay}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding SizeText}" FontWeight="SemiBold" MinWidth="70" TextAlignment="Right" VerticalAlignment="Center" />
+                      <Button Content="Show" Margin="8,0,0,0" Padding="8,2"
+                              Command="{Binding DataContext.ShowInExplorerCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                              CommandParameter="{Binding Path}" ToolTip="Show in File Explorer" />
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- Largest files on the drive -->
+            <DockPanel Grid.Column="2">
+              <TextBlock DockPanel.Dock="Top" Text="Largest files" FontWeight="SemiBold" Margin="4,0,0,6" />
+              <ListBox ItemsSource="{Binding LargestFiles}" HorizontalContentAlignment="Stretch"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                       AutomationProperties.Name="Largest files">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Grid Margin="0,2" ToolTip="{Binding Path}">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Grid.Column="0" Text="{Binding Path}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                      <Button Grid.Column="1" Margin="8,0,0,0" Padding="8,2"
+                              Content="{Binding Size, Converter={StaticResource Bytes}}"
+                              Command="{Binding DataContext.ShowInExplorerCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                              CommandParameter="{Binding Path}" ToolTip="Show in File Explorer" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+          </Grid>
+
+          <TextBlock Grid.Row="3" Margin="0,16,0,0" Text="{Binding Status}" TextWrapping="Wrap"
                      AutomationProperties.LiveSetting="Polite" />
         </Grid>
       </TabItem>
