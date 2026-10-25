@@ -37,6 +37,25 @@ dotnet run --project src/Cleaner.Cli -- disk C:\n```
 
 Shows the largest folders and files on a drive. Read-only.
 
+## Clean from the command line or on a schedule
+
+```
+cleaner clean                    # dry run: shows what would be freed
+cleaner clean --yes              # cleans the default categories (never the Recycle Bin)
+cleaner clean --preset selected --yes   # cleans the categories ticked in the app
+cleaner clean --yes --json       # machine-readable summary (sizes and counts only)
+```
+
+Your saved settings (excluded folders and file names, minimum age) always apply. If the
+settings file was damaged, nothing is deleted until you check the Settings tab in the app
+(exit code 3).
+
+Weekly with Task Scheduler (adjust the path to where you put `cleaner.exe`):
+
+```
+schtasks /create /tn "Simpli Sweep weekly clean" /sc weekly /d SUN /st 10:00 /tr "\"C:\Tools\SimpliSweep\cleaner.exe\" clean --yes"
+```
+
 ## Build and test
 
 Requires the .NET 10 SDK.
