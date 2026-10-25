@@ -53,6 +53,19 @@ public sealed class MainViewModel : ObservableObject
 
     public DiskUsageViewModel? Disk { get; init; }
 
+    public SettingsViewModel? Settings
+    {
+        get => _settings;
+        init
+        {
+            _settings = value;
+            if (value is not null)
+                value.OptionsChanged += (_, _) => InvalidateScan();
+        }
+    }
+
+    private readonly SettingsViewModel? _settings;
+
     public AsyncCommand ScanCommand { get; }
     public AsyncCommand CleanCommand { get; }
     public AsyncCommand RestartAsAdminCommand { get; }
@@ -92,6 +105,7 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             var progress = new Progress<CleanRule>(r => Status = $"Scanning: {r.Name}…");
+            _scanner.Options = Settings?.Current.ToScanOptions() ?? Cleaner.Core.Settings.ScanOptions.Default;
             _scan = await Task.Run(() => _scanner.Scan(_rules, progress));
             SetItems(_scan);
             Status = _scan.TotalBytes > 0
@@ -170,18 +184,48 @@ public sealed class MainViewModel : ObservableObject
     private void SetItems(ScanReport scan)
     {
         foreach (var item in Items)
+        {
             item.SelectionChanged -= OnSelectionChanged;
+            item.SelectionChanged -= RememberSelection;
+        }
 
         Items.Clear();
         foreach (var result in scan.Results.OrderBy(r => r.Rule.Category).ThenByDescending(r => r.Status == RuleStatus.Ok ? r.Bytes : -1))
         {
-            var item = new RuleItemViewModel(result);
+            var item = new RuleItemViewModel(result, Settings?.Current.IsSelected(result.Rule));
             item.SelectionChanged += OnSelectionChanged;
+            item.SelectionChanged += RememberSelection;
             Items.Add(item);
         }
 
         OnSelectionChanged(this, EventArgs.Empty);
         OnPropertyChanged(nameof(NeedsAdmin));
+    }
+
+    private void RememberSelection(object? sender, EventArgs e)
+    {
+        if (sender is RuleItemViewModel item)
+            Settings?.SetRuleSelected(item.Rule.Id, item.IsSelected);
+    }
+
+    /// <summary>
+    /// Exclusions or minimum age changed: the current list may include files that are now
+    /// protected, so it is cleared and Clean stays off until the next scan.
+    /// </summary>
+    private void InvalidateScan()
+    {
+        if (_scan is null || IsBusy)
+            return;
+
+        _scan = null;
+        foreach (var item in Items)
+        {
+            item.SelectionChanged -= OnSelectionChanged;
+            item.SelectionChanged -= RememberSelection;
+        }
+        Items.Clear();
+        OnSelectionChanged(this, EventArgs.Empty);
+        Status = "Settings changed. Press Scan again to see the updated list.";
     }
 
     private void OnSelectionChanged(object? sender, EventArgs e)

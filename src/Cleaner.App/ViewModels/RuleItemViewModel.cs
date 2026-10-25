@@ -7,10 +7,11 @@ public sealed class RuleItemViewModel : ObservableObject
 {
     private bool _isSelected;
 
-    public RuleItemViewModel(RuleScanResult result)
+    /// <param name="preferred">The user's saved choice for this category, or null for the rule's default.</param>
+    public RuleItemViewModel(RuleScanResult result, bool? preferred = null)
     {
         Result = result;
-        _isSelected = CanSelect && result.Rule.EnabledByDefault;
+        _isSelected = CanSelect && (preferred ?? result.Rule.EnabledByDefault);
     }
 
     public RuleScanResult Result { get; }

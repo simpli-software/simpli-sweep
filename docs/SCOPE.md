@@ -116,7 +116,7 @@ Core is UI-free so the CLI, UI and tests all share it.
 | M1 | Core engine + 14 built-in rules + safety guards + tests — **done 2026-10-24** (47 tests passing) | 1–2 weeks |
 | M2 | WPF UI: scan / preview / clean — **done 2026-10-24** | 1 week |
 | M3 | Startup manager + disk usage view — **done 2026-10-24** | 1 week |
-| M4 | CLI, settings/exclusions | 3–5 days |
+| M4 | Settings/exclusions (**done 2026-10-24**), CLI clean | 3–5 days |
 | M5 | CI, signing, installer, README, v1.0 release | 3–5 days |
 
 ## 11. Open decisions

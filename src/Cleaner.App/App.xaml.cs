@@ -4,6 +4,7 @@ using Cleaner.App.Services;
 using Cleaner.App.ViewModels;
 using Cleaner.Core;
 using Cleaner.Core.DiskUsage;
+using Cleaner.Core.Settings;
 using Cleaner.Core.Startup;
 
 namespace Cleaner.App;
@@ -42,6 +43,9 @@ public partial class App : Application
                 new StartupManager(new WindowsRegistryStore(), tokens, new WindowsShortcutResolver(), TimeProvider.System),
                 new WindowsFileTrust(),
                 elevation.IsElevated),
+            Settings = new SettingsViewModel(
+                new SettingsStore(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ProductName)),
+                new FolderPicker()),
             Disk = new DiskUsageViewModel(new DiskUsageScanner(), new WindowsShell(), FixedDrives(), tokens["WINDIR"]),
         };
 

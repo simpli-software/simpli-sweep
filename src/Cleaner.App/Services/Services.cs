@@ -18,6 +18,21 @@ public interface IElevation
     bool RestartElevated();
 }
 
+public interface IFolderPicker
+{
+    /// <summary>Returns the chosen folder, or null if the user cancelled.</summary>
+    string? PickFolder();
+}
+
+public sealed class FolderPicker : IFolderPicker
+{
+    public string? PickFolder()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Choose a folder to never clean" };
+        return dialog.ShowDialog(Application.Current.MainWindow) == true ? dialog.FolderName : null;
+    }
+}
+
 public interface IShell
 {
     /// <summary>Opens File Explorer with the item selected.</summary>
