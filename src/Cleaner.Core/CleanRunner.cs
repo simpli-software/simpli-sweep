@@ -73,10 +73,12 @@ public sealed class CleanRunner
             }
         }
 
+        // Skipped folders stay untouched here too (all of the rule's targets' skips: only ever stricter).
+        var skip = result.Rule.Targets.SelectMany(t => t.SkipFolders).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var root in result.Files.Where(f => f.RemoveEmptyDirs).Select(f => f.Root).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (realRoots.GetValueOrDefault(root) is { } realRoot)
-                RemoveEmptyDirs(root, realRoot);
+                RemoveEmptyDirs(root, realRoot, skip);
         }
 
         return new RuleCleanResult(result.Rule.Id, deleted, freed, skipped);
@@ -107,7 +109,7 @@ public sealed class CleanRunner
             && lastWriteUtc <= now.AddHours(-options.EffectiveMinAge(file.MinAgeHours))); // still old enough
     }
 
-    private void RemoveEmptyDirs(string root, string realRoot)
+    private void RemoveEmptyDirs(string root, string realRoot, IReadOnlySet<string> skipFolders)
     {
         var options = new EnumerationOptions
         {
@@ -124,7 +126,8 @@ public sealed class CleanRunner
         // that still has anything in it fails, so only empty folders are removed.
         foreach (var dir in dirs.OrderByDescending(d => d.Length))
         {
-            if (_guard.IsAllowedFile(dir, root))
+            var topLevel = Path.GetRelativePath(root, dir).Split(Path.DirectorySeparatorChar)[0];
+            if (!skipFolders.Contains(topLevel) && _guard.IsAllowedFile(dir, root))
             {
                 SafeDelete.TryDelete(dir, (realPath, attributes, _) =>
                     attributes.HasFlag(FileAttributes.Directory) && _guard.IsAllowedFile(realPath, realRoot));
