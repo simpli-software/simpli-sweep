@@ -140,6 +140,27 @@ public sealed class CleanJobTests : IDisposable
         var result = Job().Run([Temp], Clean());
 
         Assert.Equal(CleanJobOutcome.SettingsNeedReview, result.Outcome);
+        Assert.True(result.SettingsNeedReview);
         Assert.True(File.Exists(temp));
+    }
+
+    [Fact]
+    public void Dry_run_flags_settings_that_need_review()
+    {
+        Directory.CreateDirectory(SettingsFolder);
+        File.WriteAllText(Path.Combine(SettingsFolder, "settings.json"), "{ not json");
+
+        var result = Job().Run([Temp], new CleanJobOptions { DryRun = true });
+
+        Assert.Equal(CleanJobOutcome.DryRun, result.Outcome);
+        Assert.True(result.SettingsNeedReview);
+    }
+
+    [Fact]
+    public void Dry_run_with_good_settings_has_no_review_flag()
+    {
+        var result = Job().Run([Temp], new CleanJobOptions { DryRun = true });
+
+        Assert.False(result.SettingsNeedReview);
     }
 }

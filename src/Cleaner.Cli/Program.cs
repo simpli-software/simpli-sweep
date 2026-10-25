@@ -151,6 +151,10 @@ static void WriteText(CleanJobResult result)
         return;
     }
 
+    if (result.SettingsNeedReview)
+        Console.Error.WriteLine("Warning: your settings file couldn't be read, so --yes would refuse to clean. "
+            + "Open the app and check the Settings tab.");
+
     foreach (var r in result.Scan.Results)
     {
         var cleaned = result.Clean?.Results.FirstOrDefault(c => c.RuleId == r.Rule.Id);
@@ -174,6 +178,7 @@ static void WriteJson(CleanJobResult result, CleanPreset preset)
     {
         outcome = result.Outcome.ToString(),
         preset = preset.ToString(),
+        settingsNeedReview = result.SettingsNeedReview,
         bytesFound = result.Scan.TotalBytes,
         bytesFreed = result.Clean?.BytesFreed ?? 0,
         deleted = result.Clean?.Deleted ?? 0,
