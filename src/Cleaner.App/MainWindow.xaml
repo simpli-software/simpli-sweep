@@ -48,6 +48,15 @@
           </Grid.RowDefinitions>
 
           <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <Border DockPanel.Dock="Top" Margin="0,0,0,8" Padding="12" CornerRadius="4" BorderThickness="1"
+                    BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                    Visibility="{Binding SettingsNeedReview, Converter={StaticResource BoolToVis}}">
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Content="I've checked my settings" Margin="12,0,0,0" VerticalAlignment="Center"
+                        Command="{Binding AcknowledgeSettingsCommand}" />
+                <TextBlock Text="{Binding Settings.ReviewMessage}" TextWrapping="Wrap" VerticalAlignment="Center" />
+              </DockPanel>
+            </Border>
             <Button DockPanel.Dock="Right" Content="Scan again" Command="{Binding ScanCommand}" />
             <ProgressBar Height="4" Margin="0,0,12,0" VerticalAlignment="Center" IsIndeterminate="True"
                          Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
@@ -244,6 +253,59 @@
                        Visibility="{Binding ShowWindowsNote, Converter={StaticResource BoolToVis}}" />
           </StackPanel>
         </Grid>
+      </TabItem>
+      <!-- Settings -->
+      <TabItem Header="Settings" DataContext="{Binding Settings}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
+          <StackPanel MaxWidth="640" HorizontalAlignment="Left">
+            <TextBlock Text="Settings can only make cleaning more careful, never less." Opacity="0.75" Margin="0,0,0,16" TextWrapping="Wrap" />
+
+            <TextBlock Text="Only remove files" FontWeight="SemiBold" Margin="0,0,0,6" />
+            <ComboBox ItemsSource="{Binding AgeChoices}" SelectedItem="{Binding SelectedAge}"
+                      DisplayMemberPath="Label" HorizontalAlignment="Left" MinWidth="280"
+                      AutomationProperties.Name="Minimum file age" />
+            <TextBlock Text="Categories that already wait longer keep their own setting." Opacity="0.7" FontSize="12" Margin="0,4,0,20" TextWrapping="Wrap" />
+
+            <TextBlock Text="Never clean these folders" FontWeight="SemiBold" Margin="0,0,0,6" />
+            <ListBox ItemsSource="{Binding ExcludedFolders}" MinHeight="60" MaxHeight="180"
+                     HorizontalContentAlignment="Stretch" AutomationProperties.Name="Excluded folders">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Remove" Padding="8,2"
+                            Command="{Binding DataContext.RemoveFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                            CommandParameter="{Binding}" />
+                    <TextBlock Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  </DockPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <Button Content="Add folder…" HorizontalAlignment="Left" Margin="0,8,0,20" Command="{Binding AddFolderCommand}" />
+
+            <TextBlock Text="Never clean files named" FontWeight="SemiBold" Margin="0,0,0,6" />
+            <ListBox ItemsSource="{Binding ExcludedPatterns}" MinHeight="60" MaxHeight="180"
+                     HorizontalContentAlignment="Stretch" AutomationProperties.Name="Excluded file patterns">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Remove" Padding="8,2"
+                            Command="{Binding DataContext.RemovePatternCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                            CommandParameter="{Binding}" />
+                    <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+                  </DockPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <DockPanel Margin="0,8,0,0">
+              <Button DockPanel.Dock="Right" Content="Add" Margin="8,0,0,0" Command="{Binding AddPatternCommand}" />
+              <TextBox Text="{Binding NewPattern, UpdateSourceTrigger=PropertyChanged}"
+                       AutomationProperties.Name="New file pattern, for example *.log" />
+            </DockPanel>
+            <TextBlock Text="For example *.log or report-*.pdf" Opacity="0.7" FontSize="12" Margin="0,4,0,20" />
+
+            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+          </StackPanel>
+        </ScrollViewer>
       </TabItem>
     </TabControl>
   </Grid>

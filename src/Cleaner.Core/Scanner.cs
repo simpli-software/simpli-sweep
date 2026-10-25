@@ -1,5 +1,7 @@
 using System.IO.Enumeration;
 
+using Cleaner.Core.Settings;
+
 namespace Cleaner.Core;
 
 /// <summary>Finds what each rule would delete. Read-only: never modifies the file system.</summary>
@@ -29,14 +31,22 @@ public sealed class Scanner
     }
 
     /// <param name="progress">Receives each rule just before it is scanned.</param>
-    public ScanReport Scan(IEnumerable<CleanRule> rules, IProgress<CleanRule>? progress = null, CancellationToken ct = default) =>
-        new(rules.Select(r =>
+    /// <summary>The user's settings for the next scan (minimum age, exclusions). Only ever stricter than the rules.</summary>
+    public ScanOptions Options { get; set; } = ScanOptions.Default;
+
+    public ScanReport Scan(IEnumerable<CleanRule> rules, IProgress<CleanRule>? progress = null, CancellationToken ct = default)
+    {
+        var options = Options;
+        return new(rules.Select(r =>
         {
             progress?.Report(r);
-            return ScanRule(r, ct);
-        }).ToList());
+            return ScanRule(r, options, ct);
+        }).ToList(), options);
+    }
 
-    public RuleScanResult ScanRule(CleanRule rule, CancellationToken ct = default)
+    public RuleScanResult ScanRule(CleanRule rule, CancellationToken ct = default) => ScanRule(rule, Options, ct);
+
+    private RuleScanResult ScanRule(CleanRule rule, ScanOptions options, CancellationToken ct)
     {
         if (rule.RequiresAdmin && !_isElevated)
             return new RuleScanResult(rule, RuleStatus.NeedsAdmin, [], 0);
@@ -62,7 +72,7 @@ public sealed class Scanner
                 if (!_guard.IsAllowedRoot(root))
                     continue;
 
-                foreach (var file in EnumerateFiles(root, target, ct))
+                foreach (var file in EnumerateFiles(root, target, options, ct))
                 {
                     if (seen.Add(file.Path))
                         files.Add(file);
@@ -93,9 +103,10 @@ public sealed class Scanner
         return current.Where(d => Directory.Exists(d) && !IsReparsePoint(d));
     }
 
-    private IEnumerable<FileEntry> EnumerateFiles(string root, RuleTarget target, CancellationToken ct)
+    private IEnumerable<FileEntry> EnumerateFiles(string root, RuleTarget target, ScanOptions options, CancellationToken ct)
     {
-        var cutoff = _clock.GetUtcNow().UtcDateTime.AddHours(-target.MinAgeHours);
+        var minAge = options.EffectiveMinAge(target.MinAgeHours);
+        var cutoff = _clock.GetUtcNow().UtcDateTime.AddHours(-minAge);
         var removeEmpty = target.RemoveEmptyDirs && target.Recursive;
         var pending = new Stack<string>();
         pending.Push(root);
@@ -118,12 +129,13 @@ public sealed class Scanner
                 var file = (FileInfo)entry;
                 if (!MatchesAny(file.Name, target.Patterns)
                     || file.LastWriteTimeUtc > cutoff
-                    || !_guard.IsAllowedFile(file.FullName, root))
+                    || !_guard.IsAllowedFile(file.FullName, root)
+                    || options.IsExcluded(file.FullName))
                 {
                     continue;
                 }
 
-                yield return new FileEntry(file.FullName, root, file.Length, file.LastWriteTimeUtc, target.MinAgeHours, removeEmpty);
+                yield return new FileEntry(file.FullName, root, file.Length, file.LastWriteTimeUtc, minAge, removeEmpty);
             }
         }
     }

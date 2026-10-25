@@ -15,8 +15,13 @@ public sealed class CleanRunner
     }
 
     /// <param name="selectedRuleIds">Only rules the user explicitly ticked are cleaned.</param>
-    public CleanReport Clean(ScanReport scan, IReadOnlySet<string> selectedRuleIds, CancellationToken ct = default)
+    /// <param name="currentOptions">
+    /// Settings in force now. If they changed after the scan, the stricter of the two sets applies,
+    /// so an exclusion added mid-scan is still honoured.
+    /// </param>
+    public CleanReport Clean(ScanReport scan, IReadOnlySet<string> selectedRuleIds, Settings.ScanOptions? currentOptions = null, CancellationToken ct = default)
     {
+        var options = currentOptions is null ? scan.Options : Settings.ScanOptions.Strictest(scan.Options, currentOptions);
         var results = new List<RuleCleanResult>();
 
         foreach (var result in scan.Results)
@@ -26,7 +31,7 @@ public sealed class CleanRunner
 
             results.Add(result.Rule.Kind == RuleKind.RecycleBin
                 ? CleanRecycleBin(result)
-                : CleanFiles(result, ct));
+                : CleanFiles(result, options, ct));
         }
 
         return new CleanReport(results);
@@ -44,7 +49,7 @@ public sealed class CleanRunner
         return new RuleCleanResult(result.Rule.Id, 0, ok ? bytesNow : 0, ok ? 0 : 1);
     }
 
-    private RuleCleanResult CleanFiles(RuleScanResult result, CancellationToken ct)
+    private RuleCleanResult CleanFiles(RuleScanResult result, Settings.ScanOptions options, CancellationToken ct)
     {
         int deleted = 0, skipped = 0;
         long freed = 0;
@@ -57,7 +62,7 @@ public sealed class CleanRunner
             if (!realRoots.TryGetValue(file.Root, out var realRoot))
                 realRoots[file.Root] = realRoot = RealRoot(file.Root);
 
-            if (realRoot is not null && TryDelete(file, realRoot, now))
+            if (realRoot is not null && TryDelete(file, realRoot, options, now))
             {
                 deleted++;
                 freed += file.Size;
@@ -87,9 +92,9 @@ public sealed class CleanRunner
         return real is not null && _guard.IsAllowedRoot(real) ? SafetyGuard.Normalize(real) : null;
     }
 
-    private bool TryDelete(FileEntry file, string realRoot, DateTime now)
+    private bool TryDelete(FileEntry file, string realRoot, Settings.ScanOptions options, DateTime now)
     {
-        if (!_guard.IsAllowedFile(file.Path, file.Root))
+        if (!_guard.IsAllowedFile(file.Path, file.Root) || options.IsExcluded(file.Path))
             return false;
 
         // The checks run against the object actually opened, so swapping a folder for a
@@ -97,8 +102,9 @@ public sealed class CleanRunner
         return SafeDelete.TryDelete(file.Path, (realPath, attributes, lastWriteUtc) =>
             !attributes.HasFlag(FileAttributes.Directory)
             && _guard.IsAllowedFile(realPath, realRoot)
+            && !options.IsExcluded(realPath)                          // exclusions match the real location too
             && lastWriteUtc == file.LastWriteUtc                      // unchanged since the scan
-            && lastWriteUtc <= now.AddHours(-file.MinAgeHours));     // still old enough
+            && lastWriteUtc <= now.AddHours(-options.EffectiveMinAge(file.MinAgeHours))); // still old enough
     }
 
     private void RemoveEmptyDirs(string root, string realRoot)

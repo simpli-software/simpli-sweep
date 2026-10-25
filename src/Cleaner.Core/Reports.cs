@@ -1,3 +1,5 @@
+using Cleaner.Core.Settings;
+
 namespace Cleaner.Core;
 
 public enum RuleStatus
@@ -16,7 +18,8 @@ public sealed record RuleScanResult(CleanRule Rule, RuleStatus Status, IReadOnly
     public int FileCount => Files.Count;
 }
 
-public sealed record ScanReport(IReadOnlyList<RuleScanResult> Results)
+/// <param name="Options">The settings the scan used; the clean re-checks against the same ones.</param>
+public sealed record ScanReport(IReadOnlyList<RuleScanResult> Results, ScanOptions Options)
 {
     public long TotalBytes => Results.Sum(r => r.Bytes);
     public int TotalFiles => Results.Sum(r => r.FileCount);

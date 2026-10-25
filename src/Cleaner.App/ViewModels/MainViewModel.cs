@@ -14,6 +14,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly IElevation _elevation;
 
     private ScanReport? _scan;
+    private bool _optionsChangedWhileBusy;
     private bool _isBusy;
     private string _status = "Press Scan to see what can be cleaned. Nothing is deleted until you press Clean.";
 
@@ -26,7 +27,13 @@ public sealed class MainViewModel : ObservableObject
         _elevation = elevation;
 
         ScanCommand = new AsyncCommand(ScanAsync, () => !IsBusy);
-        CleanCommand = new AsyncCommand(CleanAsync, () => !IsBusy && SelectedBytes > 0);
+        CleanCommand = new AsyncCommand(CleanAsync, () => !IsBusy && SelectedBytes > 0 && !SettingsNeedReview);
+        AcknowledgeSettingsCommand = new RelayCommand(() =>
+        {
+            Settings?.AcknowledgeReview();
+            OnPropertyChanged(nameof(SettingsNeedReview));
+            RefreshCommands();
+        });
         RestartAsAdminCommand = new AsyncCommand(RestartAsAdminAsync, () => !IsBusy && NeedsAdmin);
     }
 
@@ -53,9 +60,26 @@ public sealed class MainViewModel : ObservableObject
 
     public DiskUsageViewModel? Disk { get; init; }
 
+    public SettingsViewModel? Settings
+    {
+        get => _settings;
+        init
+        {
+            _settings = value;
+            if (value is not null)
+                value.OptionsChanged += (_, _) => InvalidateScan();
+        }
+    }
+
+    private readonly SettingsViewModel? _settings;
+
     public AsyncCommand ScanCommand { get; }
     public AsyncCommand CleanCommand { get; }
     public AsyncCommand RestartAsAdminCommand { get; }
+    public RelayCommand AcknowledgeSettingsCommand { get; }
+
+    /// <summary>Clean stays off after a damaged settings file until the user confirms they've checked Settings.</summary>
+    public bool SettingsNeedReview => Settings?.NeedsReview ?? false;
 
     public bool IsElevated => _elevation.IsElevated;
 
@@ -88,10 +112,12 @@ public sealed class MainViewModel : ObservableObject
     public async Task ScanAsync()
     {
         IsBusy = true;
+        _optionsChangedWhileBusy = false;
         Status = "Scanning…";
         try
         {
             var progress = new Progress<CleanRule>(r => Status = $"Scanning: {r.Name}…");
+            _scanner.Options = Settings?.Current.ToScanOptions() ?? Cleaner.Core.Settings.ScanOptions.Default;
             _scan = await Task.Run(() => _scanner.Scan(_rules, progress));
             SetItems(_scan);
             Status = _scan.TotalBytes > 0
@@ -109,6 +135,12 @@ public sealed class MainViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+        }
+
+        if (_optionsChangedWhileBusy)
+        {
+            _optionsChangedWhileBusy = false;
+            InvalidateScan();
         }
     }
 
@@ -131,6 +163,10 @@ public sealed class MainViewModel : ObservableObject
         if (!_dialogs.Confirm("Clean selected items", message))
             return;
 
+        // Settings may have changed while the question was open, clearing the list.
+        if (_scan is null)
+            return;
+
         IsBusy = true;
         Status = "Cleaning…";
         CleanReport report;
@@ -138,7 +174,9 @@ public sealed class MainViewModel : ObservableObject
         {
             var ids = selected.Select(i => i.Rule.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var scan = _scan;
-            report = await Task.Run(() => _runner.Clean(scan, ids));
+            // Settings in force now are applied too, in case they changed after the scan.
+            var current = Settings?.Current.ToScanOptions();
+            report = await Task.Run(() => _runner.Clean(scan, ids, current));
         }
         catch (Exception e)
         {
@@ -170,18 +208,54 @@ public sealed class MainViewModel : ObservableObject
     private void SetItems(ScanReport scan)
     {
         foreach (var item in Items)
+        {
             item.SelectionChanged -= OnSelectionChanged;
+            item.SelectionChanged -= RememberSelection;
+        }
 
         Items.Clear();
         foreach (var result in scan.Results.OrderBy(r => r.Rule.Category).ThenByDescending(r => r.Status == RuleStatus.Ok ? r.Bytes : -1))
         {
-            var item = new RuleItemViewModel(result);
+            var item = new RuleItemViewModel(result, Settings?.Current.IsSelected(result.Rule));
             item.SelectionChanged += OnSelectionChanged;
+            item.SelectionChanged += RememberSelection;
             Items.Add(item);
         }
 
         OnSelectionChanged(this, EventArgs.Empty);
         OnPropertyChanged(nameof(NeedsAdmin));
+    }
+
+    private void RememberSelection(object? sender, EventArgs e)
+    {
+        if (sender is RuleItemViewModel item)
+            Settings?.SetRuleSelected(item.Rule.Id, item.IsSelected);
+    }
+
+    /// <summary>
+    /// Exclusions or minimum age changed: the current list may include files that are now
+    /// protected, so it is cleared and Clean stays off until the next scan.
+    /// </summary>
+    private void InvalidateScan()
+    {
+        if (IsBusy)
+        {
+            // A scan or clean is running: its list is out of date. Drop it when it finishes.
+            _optionsChangedWhileBusy = true;
+            return;
+        }
+        if (_scan is null)
+            return;
+
+        _scan = null;
+        foreach (var item in Items)
+        {
+            item.SelectionChanged -= OnSelectionChanged;
+            item.SelectionChanged -= RememberSelection;
+        }
+        Items.Clear();
+        OnSelectionChanged(this, EventArgs.Empty);
+        Status = "Settings changed. Press Scan again to see the updated list.";
     }
 
     private void OnSelectionChanged(object? sender, EventArgs e)

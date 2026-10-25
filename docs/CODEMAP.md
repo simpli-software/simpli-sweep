@@ -15,6 +15,9 @@
   - `Startup/` — startup manager: lists Run keys and Startup folders; on/off via the Explorer
     `StartupApproved` flag (same as Task Manager), never edits or deletes entries.
     `FileTrust.cs` reads publisher + Authenticode status (embedded, then catalog; offline) and resolves .lnk targets.
+  - `Settings/` — `ScanOptions` (minimum age, excluded folders/patterns; only ever stricter than the
+    rules, re-checked at delete time) and `SettingsStore` (settings.json in %LOCALAPPDATA%\<Product>,
+    atomic save, damaged file → defaults).
   - `DiskUsage/DiskUsageScanner.cs` — read-only folder-size tree + top-N largest files; parallel to depth 4;
     skips junctions and cloud-only placeholders.
 - `src/Cleaner.App/` — WPF app (built-in Fluent theme, MVVM, no UI library).
@@ -23,6 +26,7 @@
   - `ViewModels/RuleItemViewModel.cs` — one category row; only rows with something to clean can be ticked.
   - `Services/Services.cs` — dialogs and elevation behind interfaces (faked in tests).
   - `ViewModels/StartupViewModel.cs` — Startup tab: list, on/off switches, admin-only items locked.
+  - `ViewModels/SettingsViewModel.cs` — Settings tab; remembers Clean-tab ticks; option changes clear the scan.
   - `ViewModels/DiskUsageViewModel.cs` — Disk tab: drive picker, drill-down folder list, largest files, Show in Explorer.
 - `src/Cleaner.Cli/` — `cleaner scan` dry run, `cleaner disk <path>` sizes (cleaning from the CLI in M4).
 - `tests/Cleaner.Core.Tests/` — `FakeMachine` builds a fake Windows tree per test.
