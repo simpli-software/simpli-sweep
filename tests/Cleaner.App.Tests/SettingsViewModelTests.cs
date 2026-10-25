@@ -46,6 +46,16 @@ public sealed class SettingsViewModelTests : IDisposable
     }
 
     [Fact]
+    public void First_launch_writes_a_settings_file_so_scheduled_cleans_can_run()
+    {
+        Assert.False(new SettingsStore(SettingsFolder).Exists);
+
+        Settings();
+
+        Assert.True(new SettingsStore(SettingsFolder).Exists);
+    }
+
+    [Fact]
     public void Invalid_patterns_are_refused_with_a_reason()
     {
         var vm = Settings();

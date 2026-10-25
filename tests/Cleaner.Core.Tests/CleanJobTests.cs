@@ -30,6 +30,9 @@ public sealed class CleanJobTests : IDisposable
 
     private CleanJob Job() => new(_m.Scanner(), _m.Runner(), new SettingsStore(SettingsFolder));
 
+    private static CleanJobOptions Clean(CleanPreset preset = CleanPreset.Safe) =>
+        new() { Preset = preset, DryRun = false, AllowMissingSettings = true };
+
     [Fact]
     public void Safe_preset_cleans_default_categories_but_never_the_Recycle_Bin()
     {
@@ -37,7 +40,7 @@ public sealed class CleanJobTests : IDisposable
         var dump = _m.File(Path.Combine(_m.LocalAppData, "CrashDumps", "x.dmp"));
         _m.RecycleBin.Bytes = 1000;
 
-        var result = Job().Run([Temp, OffByDefault, Bin], CleanPreset.Safe, dryRun: false);
+        var result = Job().Run([Temp, OffByDefault, Bin], Clean());
 
         Assert.Equal(CleanJobOutcome.Cleaned, result.Outcome);
         Assert.False(File.Exists(temp));
@@ -55,7 +58,7 @@ public sealed class CleanJobTests : IDisposable
             SelectedRules = new(StringComparer.OrdinalIgnoreCase) { ["temp"] = false, ["dumps"] = true },
         });
 
-        Job().Run([Temp, OffByDefault], CleanPreset.Selected, dryRun: false);
+        Job().Run([Temp, OffByDefault], Clean(CleanPreset.Selected));
 
         Assert.True(File.Exists(temp));
         Assert.False(File.Exists(dump));
@@ -66,7 +69,7 @@ public sealed class CleanJobTests : IDisposable
     {
         var temp = _m.File(Path.Combine(_m.Temp, "a.tmp"));
 
-        var result = Job().Run([Temp], CleanPreset.Safe, dryRun: true);
+        var result = Job().Run([Temp], new CleanJobOptions { DryRun = true });
 
         Assert.Equal(CleanJobOutcome.DryRun, result.Outcome);
         Assert.Equal(1, result.Scan.TotalFiles);
@@ -85,11 +88,44 @@ public sealed class CleanJobTests : IDisposable
             ExcludedFolders = [Path.Combine(_m.Temp, "Keep")],
         });
 
-        Job().Run([Temp], CleanPreset.Safe, dryRun: false);
+        Job().Run([Temp], Clean());
 
         Assert.True(File.Exists(keep));
         Assert.True(File.Exists(young));
         Assert.False(File.Exists(old));
+    }
+
+    [Theory]
+    [InlineData(CleanPreset.Safe)]
+    [InlineData(CleanPreset.Selected)]
+    public void No_preset_empties_the_Recycle_Bin_unless_asked(CleanPreset preset)
+    {
+        _m.RecycleBin.Bytes = 1000;
+        new SettingsStore(SettingsFolder).Save(new AppSettings
+        {
+            SelectedRules = new(StringComparer.OrdinalIgnoreCase) { ["recycle-bin"] = true },
+        });
+
+        Job().Run([Bin], Clean(preset));
+        Assert.False(_m.RecycleBin.Emptied);
+
+        Job().Run([Bin], Clean(preset) with { IncludeRecycleBin = true });
+        Assert.True(_m.RecycleBin.Emptied);
+    }
+
+    [Fact]
+    public void Missing_settings_file_stops_a_real_clean_unless_allowed()
+    {
+        var temp = _m.File(Path.Combine(_m.Temp, "a.tmp"));
+        var strict = new CleanJobOptions { DryRun = false };
+
+        var refused = Job().Run([Temp], strict);
+        Assert.Equal(CleanJobOutcome.NoSettings, refused.Outcome);
+        Assert.True(File.Exists(temp));
+
+        var allowed = Job().Run([Temp], strict with { AllowMissingSettings = true });
+        Assert.Equal(CleanJobOutcome.Cleaned, allowed.Outcome);
+        Assert.False(File.Exists(temp));
     }
 
     [Theory]
@@ -101,7 +137,7 @@ public sealed class CleanJobTests : IDisposable
         Directory.CreateDirectory(SettingsFolder);
         File.WriteAllText(Path.Combine(SettingsFolder, damagedNow ? "settings.json" : "settings.json.bad"), "{ not json");
 
-        var result = Job().Run([Temp], CleanPreset.Safe, dryRun: false);
+        var result = Job().Run([Temp], Clean());
 
         Assert.Equal(CleanJobOutcome.SettingsNeedReview, result.Outcome);
         Assert.True(File.Exists(temp));

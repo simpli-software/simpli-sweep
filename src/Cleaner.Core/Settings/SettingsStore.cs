@@ -54,6 +54,9 @@ public sealed class SettingsStore
 
     public string DamagedCopyPath => _path + ".bad";
 
+    /// <summary>False until the user has run the app (or saved settings) at least once.</summary>
+    public bool Exists => File.Exists(_path);
+
     /// <summary>
     /// A damaged file is waiting for the user to check their settings. Stays true across restarts
     /// until <see cref="MarkReviewed"/> is called.

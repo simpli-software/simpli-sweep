@@ -20,8 +20,15 @@ public sealed class SettingsViewModel : ObservableObject
     {
         _store = store;
         _folders = folders;
+        var existed = store.Exists;
         _current = store.Load();
         NeedsReview = store.LoadedDefaultsAfterError || store.NeedsReview;
+        if (!existed && !NeedsReview)
+        {
+            // First run: write defaults so scheduled command-line cleans know this account's settings exist.
+            try { store.Save(_current); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
         ReviewMessage = DamagedMessage(store);
         if (NeedsReview)
             _status = ReviewMessage;

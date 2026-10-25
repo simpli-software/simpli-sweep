@@ -8,10 +8,11 @@ using Cleaner.Core.Jobs;
 using Cleaner.Core.Settings;
 
 //   cleaner scan                                   dry run: what would be removed
-//   cleaner clean [--preset safe|selected] [--yes] [--json]
+//   cleaner clean [--preset safe|selected] [--yes] [--json] [--include-recycle-bin] [--no-settings]
 //   cleaner disk <path>                            largest folders and files under a path
 //
-// Exit codes: 0 done, 1 error, 2 bad arguments, 3 settings need checking in the app (nothing deleted).
+// Exit codes: 0 done, 1 error, 2 bad arguments, 3 settings need checking in the app,
+// 4 no settings for this account / running as SYSTEM. Nothing is deleted for 2-4.
 
 ProcessHardening.Apply();
 
@@ -35,8 +36,8 @@ static int Usage()
 {
     Console.Error.WriteLine("Usage:");
     Console.Error.WriteLine("  cleaner scan          dry run: shows what would be removed, deletes nothing");
-    Console.Error.WriteLine("  cleaner clean [--preset safe|selected] [--yes] [--json]");
-    Console.Error.WriteLine("                        without --yes this is a dry run; safe never empties the Recycle Bin");
+    Console.Error.WriteLine("  cleaner clean [--preset safe|selected] [--yes] [--json] [--include-recycle-bin] [--no-settings]");
+    Console.Error.WriteLine("                        without --yes this is a dry run; the Recycle Bin is only emptied with --include-recycle-bin");
     Console.Error.WriteLine("  cleaner disk <path>   largest folders and files under <path>");
     return 2;
 }
@@ -75,20 +76,26 @@ static int Scan()
 
 static int Clean(string[] options)
 {
-    var preset = CleanPreset.Safe;
-    bool yes = false, json = false;
+    var job = new CleanJobOptions();
+    var json = false;
     for (var i = 0; i < options.Length; i++)
     {
         switch (options[i])
         {
             case "--yes":
-                yes = true;
+                job = job with { DryRun = false };
                 break;
             case "--json":
                 json = true;
                 break;
-            case "--preset" when i + 1 < options.Length && Enum.TryParse(options[i + 1], ignoreCase: true, out CleanPreset p):
-                preset = p;
+            case "--include-recycle-bin":
+                job = job with { IncludeRecycleBin = true };
+                break;
+            case "--no-settings":
+                job = job with { AllowMissingSettings = true };
+                break;
+            case "--preset" when i + 1 < options.Length && ParsePreset(options[i + 1]) is { } preset:
+                job = job with { Preset = preset };
                 i++;
                 break;
             default:
@@ -96,22 +103,51 @@ static int Clean(string[] options)
         }
     }
 
+    // Under SYSTEM (or a service account) this would read that account's settings, not the user's,
+    // so their exclusions would silently be missing. Refuse unless that is clearly intended.
+    if (!job.DryRun && WindowsIdentity.GetCurrent().IsSystem && !job.AllowMissingSettings)
+    {
+        Console.Error.WriteLine("Not cleaning: running as SYSTEM, so your settings and exclusions can't be read. "
+            + "Schedule the task to run as your own account, or add --no-settings to clean without them.");
+        return 4;
+    }
+
     var (_, scanner, runner) = Engine();
-    var result = new CleanJob(scanner, runner, new SettingsStore(SettingsFolder())).Run(RuleLoader.LoadBuiltIn(), preset, dryRun: !yes);
+    var result = new CleanJob(scanner, runner, new SettingsStore(SettingsFolder())).Run(RuleLoader.LoadBuiltIn(), job);
 
     if (json)
-        WriteJson(result, preset);
+        WriteJson(result, job.Preset);
     else
         WriteText(result);
 
-    return result.Outcome == CleanJobOutcome.SettingsNeedReview ? 3 : 0;
+    return result.Outcome switch
+    {
+        CleanJobOutcome.SettingsNeedReview => 3,
+        CleanJobOutcome.NoSettings => 4,
+        _ => 0,
+    };
 }
+
+// Only the exact names: no numbers or comma lists that Enum.TryParse would accept.
+static CleanPreset? ParsePreset(string value) => value.ToLowerInvariant() switch
+{
+    "safe" => CleanPreset.Safe,
+    "selected" => CleanPreset.Selected,
+    _ => null,
+};
 
 static void WriteText(CleanJobResult result)
 {
     if (result.Outcome == CleanJobOutcome.SettingsNeedReview)
     {
         Console.Error.WriteLine("Your settings file couldn't be read. Open the app and check the Settings tab; nothing was deleted.");
+        return;
+    }
+
+    if (result.Outcome == CleanJobOutcome.NoSettings)
+    {
+        Console.Error.WriteLine("Not cleaning: no settings found for this account, so exclusions can't be applied. "
+            + "Open the app once as this user, or add --no-settings to clean without them. Nothing was deleted.");
         return;
     }
 
