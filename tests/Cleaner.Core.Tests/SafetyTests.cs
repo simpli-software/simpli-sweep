@@ -232,6 +232,22 @@ public sealed class SafetyTests : IDisposable
     }
 
     [Fact]
+    public void Recycle_bin_is_not_emptied_if_contents_changed_but_total_shrank()
+    {
+        // User restores a big file (-900 bytes) and bins a small document (+1 item) after the scan.
+        var rule = new CleanRule { Id = "bin", Name = "bin", Kind = RuleKind.RecycleBin };
+        _m.RecycleBin.Bytes = 1000;
+        _m.RecycleBin.AddAfterNextQuery = -900;
+        _m.RecycleBin.AddItemsAfterNextQuery = 1;
+
+        var scan = _m.Scanner().Scan([rule]);
+        var report = _m.Runner().Clean(scan, new HashSet<string> { "bin" });
+
+        Assert.False(_m.RecycleBin.Emptied);
+        Assert.Equal(1, report.Skipped);
+    }
+
+    [Fact]
     public void Read_only_files_are_skipped_not_forced()
     {
         var file = _m.File(Path.Combine(_m.Temp, "ro.tmp"));

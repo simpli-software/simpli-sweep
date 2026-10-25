@@ -90,12 +90,15 @@ public sealed class FakeRecycleBin : IRecycleBin
 
     /// <summary>Simulates the user binning something between the scan and the clean.</summary>
     public long AddAfterNextQuery { get; set; }
+    public long Items { get; set; } = 1;
+    public long AddItemsAfterNextQuery { get; set; }
 
     public (long Bytes, long Items) Query()
     {
-        var result = (Bytes, Bytes > 0 ? 1L : 0L);
+        var result = (Bytes, Bytes > 0 ? Items : 0L);
         Bytes += AddAfterNextQuery;
-        AddAfterNextQuery = 0;
+        Items += AddItemsAfterNextQuery;
+        AddAfterNextQuery = AddItemsAfterNextQuery = 0;
         return result;
     }
 

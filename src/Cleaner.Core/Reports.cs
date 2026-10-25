@@ -10,7 +10,8 @@ public enum RuleStatus
 
 public sealed record FileEntry(string Path, string Root, long Size, DateTime LastWriteUtc, double MinAgeHours, bool RemoveEmptyDirs);
 
-public sealed record RuleScanResult(CleanRule Rule, RuleStatus Status, IReadOnlyList<FileEntry> Files, long Bytes)
+/// <param name="Items">Item count for the Recycle Bin (files are counted via <see cref="Files"/>).</param>
+public sealed record RuleScanResult(CleanRule Rule, RuleStatus Status, IReadOnlyList<FileEntry> Files, long Bytes, long Items = 0)
 {
     public int FileCount => Files.Count;
 }

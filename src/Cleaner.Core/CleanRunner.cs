@@ -35,8 +35,9 @@ public sealed class CleanRunner
     private RuleCleanResult CleanRecycleBin(RuleScanResult result)
     {
         // Anything binned after the scan was never shown to the user: don't empty it unseen.
-        var (bytesNow, _) = _recycleBin.Query();
-        if (bytesNow > result.Bytes)
+        // Any change at all (even a smaller total after a restore) means the user hasn't seen it.
+        var (bytesNow, itemsNow) = _recycleBin.Query();
+        if (bytesNow != result.Bytes || itemsNow != result.Items)
             return new RuleCleanResult(result.Rule.Id, 0, 0, 1);
 
         var ok = _recycleBin.Empty();

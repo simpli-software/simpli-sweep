@@ -43,8 +43,8 @@ public sealed class Scanner
 
         if (rule.Kind == RuleKind.RecycleBin)
         {
-            var (bytes, _) = _recycleBin.Query();
-            return new RuleScanResult(rule, bytes > 0 ? RuleStatus.Ok : RuleStatus.NothingFound, [], bytes);
+            var (bytes, items) = _recycleBin.Query();
+            return new RuleScanResult(rule, bytes > 0 ? RuleStatus.Ok : RuleStatus.NothingFound, [], bytes, items);
         }
 
         var files = new List<FileEntry>();
