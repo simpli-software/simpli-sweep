@@ -18,6 +18,8 @@
   - `Settings/` — `ScanOptions` (minimum age, excluded folders/patterns; only ever stricter than the
     rules, re-checked at delete time) and `SettingsStore` (settings.json in %LOCALAPPDATA%\<Product>,
     atomic save, damaged file → defaults).
+  - `Jobs/CleanJob.cs` — unattended scan + clean for the CLI: presets (safe = defaults minus Recycle Bin,
+    selected = app ticks), saved settings applied, refuses while settings need review.
   - `DiskUsage/DiskUsageScanner.cs` — read-only folder-size tree + top-N largest files; parallel to depth 4;
     skips junctions and cloud-only placeholders.
 - `src/Cleaner.App/` — WPF app (built-in Fluent theme, MVVM, no UI library).
@@ -28,7 +30,8 @@
   - `ViewModels/StartupViewModel.cs` — Startup tab: list, on/off switches, admin-only items locked.
   - `ViewModels/SettingsViewModel.cs` — Settings tab; remembers Clean-tab ticks; option changes clear the scan.
   - `ViewModels/DiskUsageViewModel.cs` — Disk tab: drive picker, drill-down folder list, largest files, Show in Explorer.
-- `src/Cleaner.Cli/` — `cleaner scan` dry run, `cleaner disk <path>` sizes (cleaning from the CLI in M4).
+- `src/Cleaner.Cli/` — `cleaner scan`, `cleaner clean [--preset safe|selected] [--yes] [--json]`, `cleaner disk <path>`.
+  Exit codes: 0 done, 1 error, 2 bad arguments, 3 settings need checking.
 - `tests/Cleaner.Core.Tests/` — `FakeMachine` builds a fake Windows tree per test.
   - `SafetyTests.cs` — guard, junction, locking and timing tests.
   - `BuiltInRuleTests.cs` — one `Rule_<id>` test per built-in rule (enforced by a test).

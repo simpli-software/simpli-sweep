@@ -55,7 +55,28 @@ public sealed class FakeMachine : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         System.IO.File.WriteAllBytes(path, new byte[bytes]);
         System.IO.File.SetLastWriteTimeUtc(path, Clock.GetUtcNow().UtcDateTime.AddHours(-ageHours));
+        WaitUntilFree(path);
         return path;
+    }
+
+    /// <summary>
+    /// Antivirus often opens a newly written file for a moment; the cleaner would rightly skip it
+    /// as "in use". Wait until nothing else has it open so tests aren't flaky.
+    /// </summary>
+    private static void WaitUntilFree(string path)
+    {
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            try
+            {
+                using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                    return;
+            }
+            catch (IOException)
+            {
+                Thread.Sleep(20);
+            }
+        }
     }
 
     /// <summary>Scans then cleans the given rules, as the UI will.</summary>
