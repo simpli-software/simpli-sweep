@@ -15,6 +15,14 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        ProcessHardening.Apply();
+
+        DispatcherUnhandledException += (_, args) =>
+        {
+            // Last resort: report instead of crashing. Never includes paths in logs (there are none).
+            MessageBox.Show(args.Exception.Message, ProductName, MessageBoxButton.OK, MessageBoxImage.Error);
+            args.Handled = true;
+        };
 
         var tokens = PathTokens.FromEnvironment();
         var guard = SafetyGuard.ForCurrentUser(tokens);

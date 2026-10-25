@@ -34,8 +34,13 @@ public sealed class CleanRunner
 
     private RuleCleanResult CleanRecycleBin(RuleScanResult result)
     {
+        // Anything binned after the scan was never shown to the user: don't empty it unseen.
+        var (bytesNow, _) = _recycleBin.Query();
+        if (bytesNow > result.Bytes)
+            return new RuleCleanResult(result.Rule.Id, 0, 0, 1);
+
         var ok = _recycleBin.Empty();
-        return new RuleCleanResult(result.Rule.Id, 0, ok ? result.Bytes : 0, ok ? 0 : 1);
+        return new RuleCleanResult(result.Rule.Id, 0, ok ? bytesNow : 0, ok ? 0 : 1);
     }
 
     private RuleCleanResult CleanFiles(RuleScanResult result, CancellationToken ct)
@@ -43,11 +48,15 @@ public sealed class CleanRunner
         int deleted = 0, skipped = 0;
         long freed = 0;
         var now = _clock.GetUtcNow().UtcDateTime;
+        var realRoots = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var file in result.Files)
         {
             ct.ThrowIfCancellationRequested();
-            if (TryDelete(file, now))
+            if (!realRoots.TryGetValue(file.Root, out var realRoot))
+                realRoots[file.Root] = realRoot = RealRoot(file.Root);
+
+            if (realRoot is not null && TryDelete(file, realRoot, now))
             {
                 deleted++;
                 freed += file.Size;
@@ -59,57 +68,40 @@ public sealed class CleanRunner
         }
 
         foreach (var root in result.Files.Where(f => f.RemoveEmptyDirs).Select(f => f.Root).Distinct(StringComparer.OrdinalIgnoreCase))
-            RemoveEmptyDirs(root);
+        {
+            if (realRoots.GetValueOrDefault(root) is { } realRoot)
+                RemoveEmptyDirs(root, realRoot);
+        }
 
         return new RuleCleanResult(result.Rule.Id, deleted, freed, skipped);
     }
 
-    private bool TryDelete(FileEntry file, DateTime now)
-    {
-        try
-        {
-            if (!_guard.IsAllowedFile(file.Path, file.Root))
-                return false;
-
-            var info = new FileInfo(file.Path);
-            if (!info.Exists || info.Attributes.HasFlag(FileAttributes.ReparsePoint))
-                return false;
-
-            // The file changed since the scan (or became too new): leave it alone.
-            if (info.LastWriteTimeUtc != file.LastWriteUtc || info.LastWriteTimeUtc > now.AddHours(-file.MinAgeHours))
-                return false;
-
-            // A parent folder may have been swapped for a junction since the scan.
-            if (HasReparseAncestor(info.Directory, file.Root))
-                return false;
-
-            info.Delete();
-            return true;
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return false; // locked or in use
-        }
-    }
-
-    private static bool HasReparseAncestor(DirectoryInfo? dir, string root)
-    {
-        var normalizedRoot = SafetyGuard.Normalize(root);
-        for (var d = dir; d is not null; d = d.Parent)
-        {
-            if (d.Attributes.HasFlag(FileAttributes.ReparsePoint))
-                return true;
-            if (SafetyGuard.Normalize(d.FullName).Equals(normalizedRoot, StringComparison.OrdinalIgnoreCase))
-                return false;
-        }
-        return true; // walked past the drive root without meeting the rule root
-    }
-
-    private void RemoveEmptyDirs(string root)
+    /// <summary>The rule root's real path, or null if it is no longer a safe root.</summary>
+    private string? RealRoot(string root)
     {
         if (!_guard.IsAllowedRoot(root) || Scanner.IsReparsePoint(root))
-            return;
+            return null;
 
+        var real = SafeDelete.FinalPath(root);
+        return real is not null && _guard.IsAllowedRoot(real) ? SafetyGuard.Normalize(real) : null;
+    }
+
+    private bool TryDelete(FileEntry file, string realRoot, DateTime now)
+    {
+        if (!_guard.IsAllowedFile(file.Path, file.Root))
+            return false;
+
+        // The checks run against the object actually opened, so swapping a folder for a
+        // junction at any point cannot redirect the delete outside the rule's root.
+        return SafeDelete.TryDelete(file.Path, (realPath, attributes, lastWriteUtc) =>
+            !attributes.HasFlag(FileAttributes.Directory)
+            && _guard.IsAllowedFile(realPath, realRoot)
+            && lastWriteUtc == file.LastWriteUtc                      // unchanged since the scan
+            && lastWriteUtc <= now.AddHours(-file.MinAgeHours));     // still old enough
+    }
+
+    private void RemoveEmptyDirs(string root, string realRoot)
+    {
         var options = new EnumerationOptions
         {
             RecurseSubdirectories = true,
@@ -121,19 +113,15 @@ public sealed class CleanRunner
         try { dirs = Directory.EnumerateDirectories(root, "*", options).ToList(); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return; }
 
-        // Deepest first so parents empty out after their children go.
+        // Deepest first so parents empty out after their children go. Deleting a folder
+        // that still has anything in it fails, so only empty folders are removed.
         foreach (var dir in dirs.OrderByDescending(d => d.Length))
         {
-            try
+            if (_guard.IsAllowedFile(dir, root))
             {
-                if (_guard.IsAllowedFile(dir, root)
-                    && !Scanner.IsReparsePoint(dir)
-                    && !Directory.EnumerateFileSystemEntries(dir).Any())
-                {
-                    Directory.Delete(dir);
-                }
+                SafeDelete.TryDelete(dir, (realPath, attributes, _) =>
+                    attributes.HasFlag(FileAttributes.Directory) && _guard.IsAllowedFile(realPath, realRoot));
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         }
     }
 }

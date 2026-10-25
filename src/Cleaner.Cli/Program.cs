@@ -10,6 +10,7 @@ if (args is not ["scan"])
     return 2;
 }
 
+ProcessHardening.Apply();
 var tokens = PathTokens.FromEnvironment();
 var elevated = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
 var scanner = new Scanner(tokens, SafetyGuard.ForCurrentUser(tokens), new ShellRecycleBin(), TimeProvider.System, elevated);

@@ -49,6 +49,7 @@ public sealed class SafetyTests : IDisposable
     [InlineData("%USERPROFILE%\\Documents")]
     [InlineData("%USERPROFILE%\\Downloads")]
     [InlineData("%USERPROFILE%\\OneDrive")]
+    [InlineData("%USERPROFILE%\\AppData")]
     public void Protected_roots_are_refused(string path)
     {
         Directory.CreateDirectory(_m.Tokens.Expand(path)!);
@@ -214,6 +215,57 @@ public sealed class SafetyTests : IDisposable
 
         Assert.Equal(RuleStatus.NeedsAdmin, scan.Results[0].Status);
         Assert.Empty(scan.Results[0].Files);
+    }
+
+    [Fact]
+    public void Recycle_bin_is_not_emptied_if_items_were_added_after_the_scan()
+    {
+        var rule = new CleanRule { Id = "bin", Name = "bin", Kind = RuleKind.RecycleBin };
+        _m.RecycleBin.Bytes = 1000;
+        _m.RecycleBin.AddAfterNextQuery = 500; // user bins a document while the results are on screen
+
+        var scan = _m.Scanner().Scan([rule]);
+        var report = _m.Runner().Clean(scan, new HashSet<string> { "bin" });
+
+        Assert.False(_m.RecycleBin.Emptied);
+        Assert.Equal(1, report.Skipped);
+    }
+
+    [Fact]
+    public void Read_only_files_are_skipped_not_forced()
+    {
+        var file = _m.File(Path.Combine(_m.Temp, "ro.tmp"));
+        File.SetAttributes(file, FileAttributes.ReadOnly);
+        try
+        {
+            var (_, clean) = _m.Run(Rule("%TEMP%"));
+
+            Assert.True(File.Exists(file));
+            Assert.Equal(1, clean.Skipped);
+        }
+        finally
+        {
+            File.SetAttributes(file, FileAttributes.Normal);
+        }
+    }
+
+    [Fact]
+    public void Junction_root_is_refused_at_clean_time()
+    {
+        // The rule root itself is swapped for a junction to Documents after the scan.
+        var root = Path.Combine(_m.LocalAppData, "SomeCache");
+        _m.File(Path.Combine(root, "same.docx"));
+        var scan = _m.Scanner().Scan([Rule("%LOCALAPPDATA%\\SomeCache")]);
+
+        Directory.Delete(root, recursive: true);
+        var precious = _m.File(Path.Combine(_m.Documents, "same.docx"));
+        File.SetLastWriteTimeUtc(precious, scan.Results[0].Files[0].LastWriteUtc);
+        CreateJunction(root, _m.Documents);
+
+        var report = _m.Runner().Clean(scan, new HashSet<string> { "test" });
+
+        Assert.True(File.Exists(precious));
+        Assert.Equal(0, report.Deleted);
     }
 
     private static void CreateJunction(string link, string target)

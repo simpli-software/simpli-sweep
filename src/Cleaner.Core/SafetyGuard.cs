@@ -54,7 +54,14 @@ public sealed class SafetyGuard
             Path.Combine(windir, @"ServiceProfiles\NetworkService\AppData\Local\Microsoft\Windows\DeliveryOptimization\Cache"),
         };
 
-        var never = new[] { tokens["USERPROFILE"], tokens["LOCALAPPDATA"], tokens["APPDATA"], tokens["PROGRAMDATA"] };
+        var never = new[]
+        {
+            tokens["USERPROFILE"],
+            Path.Combine(tokens["USERPROFILE"], "AppData"),
+            tokens["LOCALAPPDATA"],
+            tokens["APPDATA"],
+            tokens["PROGRAMDATA"],
+        };
 
         return new SafetyGuard(deny, allow, never);
     }

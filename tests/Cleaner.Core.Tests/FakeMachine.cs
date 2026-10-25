@@ -40,7 +40,7 @@ public sealed class FakeMachine : IDisposable
             denyRoots: [Windir, Documents, Path.Combine(Profile, "Downloads"), Path.Combine(Profile, "OneDrive")],
             allowExceptions: [Path.Combine(Windir, "Temp"), Path.Combine(Windir, "Minidump"), Path.Combine(Windir, "SoftwareDistribution", "Download"),
                 Path.Combine(Windir, @"ServiceProfiles\NetworkService\AppData\Local\Microsoft\Windows\DeliveryOptimization\Cache")],
-            neverRoots: [Profile, LocalAppData, AppData, ProgramData]);
+            neverRoots: [Profile, Path.Combine(Profile, "AppData"), LocalAppData, AppData, ProgramData]);
     }
 
     public PathTokens Tokens { get; }
@@ -88,7 +88,16 @@ public sealed class FakeRecycleBin : IRecycleBin
     public long Bytes { get; set; }
     public bool Emptied { get; private set; }
 
-    public (long Bytes, long Items) Query() => (Bytes, Bytes > 0 ? 1 : 0);
+    /// <summary>Simulates the user binning something between the scan and the clean.</summary>
+    public long AddAfterNextQuery { get; set; }
+
+    public (long Bytes, long Items) Query()
+    {
+        var result = (Bytes, Bytes > 0 ? 1L : 0L);
+        Bytes += AddAfterNextQuery;
+        AddAfterNextQuery = 0;
+        return result;
+    }
 
     public bool Empty()
     {

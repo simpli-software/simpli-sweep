@@ -77,9 +77,12 @@ public sealed class MainViewModel : ObservableObject
                 ? "Review the list, untick anything you want to keep, then press Clean."
                 : "Nothing to clean right now.";
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException)
+        catch (Exception e)
         {
-            Status = "Scan failed.";
+            _scan = null;
+            Items.Clear();
+            OnSelectionChanged(this, EventArgs.Empty);
+            Status = "Scan failed. Press Scan again to retry.";
             _dialogs.Error("Scan failed", e.Message);
         }
         finally
@@ -113,7 +116,16 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             var ids = selected.Select(i => i.Rule.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            report = await Task.Run(() => _runner.Clean(_scan, ids));
+            var scan = _scan;
+            report = await Task.Run(() => _runner.Clean(scan, ids));
+        }
+        catch (Exception e)
+        {
+            IsBusy = false;
+            _dialogs.Error("Clean failed", e.Message);
+            await ScanAsync();
+            Status = "Clean stopped because of an error. The list shows what is left.";
+            return;
         }
         finally
         {
@@ -123,7 +135,7 @@ public sealed class MainViewModel : ObservableObject
         await ScanAsync();
         Status = report.Skipped == 0
             ? string.Format(CultureInfo.CurrentCulture, "Done. Freed {0}.", ByteSize.Format(report.BytesFreed))
-            : string.Format(CultureInfo.CurrentCulture, "Done. Freed {0}. {1:N0} files were in use or had changed and were left alone.",
+            : string.Format(CultureInfo.CurrentCulture, "Done. Freed {0}. {1:N0} items were in use or had changed since the scan and were left alone.",
                 ByteSize.Format(report.BytesFreed), report.Skipped);
     }
 
