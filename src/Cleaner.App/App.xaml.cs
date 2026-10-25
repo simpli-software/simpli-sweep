@@ -3,6 +3,7 @@ using System.Windows;
 using Cleaner.App.Services;
 using Cleaner.App.ViewModels;
 using Cleaner.Core;
+using Cleaner.Core.Startup;
 
 namespace Cleaner.App;
 
@@ -34,11 +35,18 @@ public partial class App : Application
             new Scanner(tokens, guard, recycleBin, TimeProvider.System, elevation.IsElevated),
             new CleanRunner(guard, recycleBin, TimeProvider.System),
             new DialogService(),
-            elevation);
+            elevation)
+        {
+            Startup = new StartupViewModel(
+                new StartupManager(new WindowsRegistryStore(), tokens, new WindowsShortcutResolver(), TimeProvider.System),
+                new WindowsFileTrust(),
+                elevation.IsElevated),
+        };
 
         var window = new MainWindow { DataContext = viewModel };
         MainWindow = window;
         window.Show();
         _ = viewModel.ScanAsync();
+        _ = viewModel.Startup.LoadAsync();
     }
 }

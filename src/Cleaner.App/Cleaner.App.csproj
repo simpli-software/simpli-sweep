@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Cleaner.Core\Cleaner.Core.csproj" />
     <InternalsVisibleTo Include="Cleaner.App.Tests" />
+    <Using Include="System.IO" />
   </ItemGroup>
 
 </Project>

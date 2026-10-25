@@ -1,4 +1,3 @@
-using System.IO;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Cleaner.App.Services;
@@ -33,6 +32,25 @@ public sealed class MainViewModel : ObservableObject
 
     public ObservableCollection<RuleItemViewModel> Items { get; } = [];
 
+    public StartupViewModel? Startup
+    {
+        get => _startup;
+        init
+        {
+            _startup = value;
+            if (value is not null)
+            {
+                value.Items.CollectionChanged += (_, _) =>
+                {
+                    OnPropertyChanged(nameof(NeedsAdmin));
+                    RefreshCommands();
+                };
+            }
+        }
+    }
+
+    private readonly StartupViewModel? _startup;
+
     public AsyncCommand ScanCommand { get; }
     public AsyncCommand CleanCommand { get; }
     public AsyncCommand RestartAsAdminCommand { get; }
@@ -61,8 +79,9 @@ public sealed class MainViewModel : ObservableObject
         ? ""
         : string.Format(CultureInfo.CurrentCulture, "Selected: {0}", ByteSize.Format(SelectedBytes));
 
-    /// <summary>Some categories were skipped because the app isn't running as administrator.</summary>
-    public bool NeedsAdmin => !IsElevated && Items.Any(i => i.Result.Status == RuleStatus.NeedsAdmin);
+    /// <summary>Some categories or startup programs need the app to run as administrator.</summary>
+    public bool NeedsAdmin => !IsElevated
+        && (Items.Any(i => i.Result.Status == RuleStatus.NeedsAdmin) || (Startup?.Items.Any(i => !i.CanToggle) ?? false));
 
     public async Task ScanAsync()
     {

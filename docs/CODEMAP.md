@@ -11,16 +11,21 @@
   - `CleanRunner.cs` — deletes scanned files after re-checking each one (guard, timestamp, junctions).
   - `RecycleBin.cs` — `IRecycleBin` + shell implementation.
   - `Reports.cs` — scan/clean results. Clean reports hold counts and bytes only, never paths.
+  - `SafeDelete.cs` — handle-based delete (checks the opened object's real path) + process hardening.
+  - `Startup/` — startup manager: lists Run keys and Startup folders; on/off via the Explorer
+    `StartupApproved` flag (same as Task Manager), never edits or deletes entries.
+    `FileTrust.cs` reads publisher + Authenticode status (offline) and resolves .lnk targets.
 - `src/Cleaner.App/` — WPF app (built-in Fluent theme, MVVM, no UI library).
   - `App.xaml.cs` — composition root; product name read from the `<Product>` build setting.
   - `ViewModels/MainViewModel.cs` — scan, selection, confirm-then-clean, restart as admin.
   - `ViewModels/RuleItemViewModel.cs` — one category row; only rows with something to clean can be ticked.
   - `Services/Services.cs` — dialogs and elevation behind interfaces (faked in tests).
+  - `ViewModels/StartupViewModel.cs` — Startup tab: list, on/off switches, admin-only items locked.
 - `src/Cleaner.Cli/` — `cleaner scan` dry run (cleaning from the CLI in M4).
 - `tests/Cleaner.Core.Tests/` — `FakeMachine` builds a fake Windows tree per test.
   - `SafetyTests.cs` — guard, junction, locking and timing tests.
   - `BuiltInRuleTests.cs` — one `Rule_<id>` test per built-in rule (enforced by a test).
-- `tests/Cleaner.App.Tests/` — view-model tests (confirmation, selection, admin flow) on a `FakeMachine`.
+- `tests/Cleaner.App.Tests/` — view-model tests (confirmation, selection, admin flow, startup switches) on `FakeMachine` / `FakeRegistry`.
 
 ## Adding a rule
 Add it to a `Rules/*.json` file, then add `Rule_<id-with-underscores>` to `BuiltInRuleTests.cs`

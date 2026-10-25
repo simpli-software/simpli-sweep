@@ -18,6 +18,7 @@
     <Using Include="Xunit" />
     <Using Include="System.IO" />
     <Compile Include="..\Cleaner.Core.Tests\FakeMachine.cs" Link="FakeMachine.cs" />
+    <Compile Include="..\Cleaner.Core.Tests\FakeRegistry.cs" Link="FakeRegistry.cs" />
     <ProjectReference Include="..\..\src\Cleaner.App\Cleaner.App.csproj" />
   </ItemGroup>
 
