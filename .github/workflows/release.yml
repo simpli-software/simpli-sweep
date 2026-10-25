@@ -1,0 +1,92 @@
+name: Release
+
+# A version tag (v1.2.3) builds the release files and attaches them to a DRAFT GitHub Release;
+# a person publishes it. Pull requests that touch the packaging build the files only, so the
+# installer script is tested before a tag ever needs it.
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'build/**'
+      - 'installer/**'
+      - '.github/workflows/release.yml'
+      - 'Directory.Build.props'
+      - 'src/**/*.csproj'
+
+permissions: {} # each job asks for exactly what it needs
+
+jobs:
+  package:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      INNO_URL: https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe
+      INNO_SHA256: 0362A383ED217D4C4239B5933866DD96D3EB2102737DA92F80F6057A4B40DF2F
+      REF_TYPE: ${{ github.ref_type }}
+      REF_NAME: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # A tag needs main's history for the check below.
+          fetch-depth: ${{ github.ref_type == 'tag' && '0' || '1' }}
+          persist-credentials: false
+      - name: Tag must point at a commit on main
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/main
+          if ($LASTEXITCODE -ne 0) { throw "Tag $env:REF_NAME is not on main; releases are built from main only" }
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+      - name: Test before packaging a release
+        if: github.ref_type == 'tag'
+        run: dotnet test -c Release
+      - name: Install Inno Setup (pinned by hash)
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:RUNNER_TEMP 'innosetup.exe'
+          Invoke-WebRequest -Uri $env:INNO_URL -OutFile $exe
+          if ((Get-FileHash $exe -Algorithm SHA256).Hash -ne $env:INNO_SHA256) { throw 'Inno Setup download does not match the pinned hash' }
+          if ((Get-AuthenticodeSignature $exe).Status -ne 'Valid') { throw 'Inno Setup download is not validly signed' }
+          $dir = Join-Path $env:RUNNER_TEMP 'inno'
+          $p = Start-Process $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=$dir" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Inno Setup install failed ($($p.ExitCode))" }
+      - name: Build release files
+        shell: pwsh
+        run: |
+          $opts = @{ Iscc = (Join-Path $env:RUNNER_TEMP 'inno\ISCC.exe'); RequireInstaller = $true }
+          # On a tag, the tag must match <Version> in Directory.Build.props.
+          if ($env:REF_TYPE -eq 'tag') { $opts.ExpectVersion = $env:REF_NAME.TrimStart('v') }
+          ./build/release.ps1 @opts
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: artifacts/release/
+          if-no-files-found: error
+          retention-days: 7
+
+  draft-release:
+    needs: package
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # create the draft release
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: dist
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "$TAG" --generate-notes

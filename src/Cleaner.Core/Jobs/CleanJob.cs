@@ -35,7 +35,9 @@ public sealed record CleanJobOptions
     public bool AllowMissingSettings { get; init; }
 }
 
-public sealed record CleanJobResult(CleanJobOutcome Outcome, ScanReport Scan, CleanReport? Clean, IReadOnlyList<CleanRule> Rules);
+/// <param name="SettingsNeedReview">True when the settings file was damaged; a real run would refuse until it is checked.</param>
+public sealed record CleanJobResult(
+    CleanJobOutcome Outcome, ScanReport Scan, CleanReport? Clean, IReadOnlyList<CleanRule> Rules, bool SettingsNeedReview = false);
 
 /// <summary>
 /// One unattended scan-and-clean, as the command line runs it. Always applies the user's saved
@@ -64,16 +66,16 @@ public sealed class CleanJob
     {
         var hasSettings = _settings.Exists;
         var settings = _settings.Load();
-        var needsReview = _settings.LoadedDefaultsAfterError || _settings.NeedsReview;
+        var needsReview = _settings.BlocksCleaning;
         var rules = SelectRules(allRules, options, settings);
 
         _scanner.Options = settings.ToScanOptions();
         var scan = _scanner.Scan(rules, ct: ct);
 
         if (options.DryRun)
-            return new CleanJobResult(CleanJobOutcome.DryRun, scan, null, rules);
+            return new CleanJobResult(CleanJobOutcome.DryRun, scan, null, rules, needsReview);
         if (needsReview)
-            return new CleanJobResult(CleanJobOutcome.SettingsNeedReview, scan, null, rules);
+            return new CleanJobResult(CleanJobOutcome.SettingsNeedReview, scan, null, rules, true);
         if (!hasSettings && !options.AllowMissingSettings)
             return new CleanJobResult(CleanJobOutcome.NoSettings, scan, null, rules);
 

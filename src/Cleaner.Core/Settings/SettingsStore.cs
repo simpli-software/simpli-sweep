@@ -63,6 +63,9 @@ public sealed class SettingsStore
     /// </summary>
     public bool NeedsReview => File.Exists(DamagedCopyPath);
 
+    /// <summary>Unattended cleaning must not run: the last load was damaged or a damaged copy awaits review.</summary>
+    public bool BlocksCleaning => LoadedDefaultsAfterError || NeedsReview;
+
     /// <summary>The user has checked their settings: keep the damaged copy under a dated name.</summary>
     public void MarkReviewed()
     {

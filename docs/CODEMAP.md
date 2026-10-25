@@ -2,7 +2,7 @@
 
 ## Layout
 - `src/Cleaner.Core/` — engine, no UI. Shared by the CLI, the app and the tests.
-  - `CleanRule.cs` — rule/target records (loaded from JSON).
+  - `CleanRule.cs` — rule/target records (loaded from JSON). `skipFolders`: top-level folders a target never enters.
   - `Rules/*.json` — built-in rules, embedded in the assembly.
   - `RuleLoader.cs` — loads embedded rules; `Validate` rejects unsafe rule files.
   - `PathTokens.cs` — the fixed token set rules may use (%TEMP%, %LOCALAPPDATA%, …).
@@ -31,11 +31,17 @@
   - `ViewModels/SettingsViewModel.cs` — Settings tab; remembers Clean-tab ticks; option changes clear the scan.
   - `ViewModels/DiskUsageViewModel.cs` — Disk tab: drive picker, drill-down folder list, largest files, Show in Explorer.
 - `src/Cleaner.Cli/` — `cleaner scan`, `cleaner clean [--preset safe|selected] [--yes] [--json]`, `cleaner disk <path>`.
-  Exit codes: 0 done, 1 error, 2 bad arguments, 3 settings need checking.
+  Exit codes: 0 done, 1 error, 2 bad arguments, 3 settings need checking, 4 no settings / running as SYSTEM.
+  A dry run with damaged settings still exits 0 but warns (and `settingsNeedReview` in `--json`).
 - `tests/Cleaner.Core.Tests/` — `FakeMachine` builds a fake Windows tree per test.
   - `SafetyTests.cs` — guard, junction, locking and timing tests.
   - `BuiltInRuleTests.cs` — one `Rule_<id>` test per built-in rule (enforced by a test).
 - `tests/Cleaner.App.Tests/` — view-model tests (confirmation, selection, admin flow, startup switches) on `FakeMachine` / `FakeRegistry`.
+- `build/release.ps1` — self-contained single-file app + CLI, portable zip, installer, SHA256SUMS.txt → `artifacts/release/`.
+- `installer/SimpliSweep.iss` — Inno Setup script; names and version are passed in by `release.ps1`.
+- `.github/workflows/ci.yml` — the gate on `windows-latest` + gitleaks (full history).
+  `release.yml` — a `v*` tag builds the files and makes a **draft** release; PRs touching packaging build only.
+  Every `uses:` is pinned by commit SHA; downloaded tools (gitleaks, Inno Setup) by SHA-256.
 
 ## Adding a rule
 Add it to a `Rules/*.json` file, then add `Rule_<id-with-underscores>` to `BuiltInRuleTests.cs`
@@ -47,3 +53,8 @@ dotnet build -warnaserror
 dotnet test
 dotnet format --verify-no-changes
 ```
+
+## Releasing
+1. Bump `<Version>` in `Directory.Build.props`, merge.
+2. Tag `vX.Y.Z` on `main` and push the tag (needs Dale's OK). The tag must match `<Version>`.
+3. Check the draft release's files, then publish it by hand.

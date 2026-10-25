@@ -35,4 +35,7 @@ public sealed record RuleTarget
     public bool Recursive { get; init; }
     public double MinAgeHours { get; init; }
     public bool RemoveEmptyDirs { get; init; }
+
+    /// <summary>Folder names directly under the target path that are never scanned (plain names only).</summary>
+    public IReadOnlyList<string> SkipFolders { get; init; } = [];
 }

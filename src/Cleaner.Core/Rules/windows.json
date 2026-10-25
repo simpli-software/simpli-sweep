@@ -5,7 +5,10 @@
     "name": "Temporary files (your account)",
     "description": "Files apps left in your temp folder more than a day ago.",
     "category": "Windows",
-    "targets": [ { "path": "%TEMP%", "recursive": true, "minAgeHours": 24, "removeEmptyDirs": true } ]
+    "targets": [
+      // .net holds files that single-file .NET apps (this one included) unpack and reuse at every start.
+      { "path": "%TEMP%", "recursive": true, "minAgeHours": 24, "removeEmptyDirs": true, "skipFolders": [ ".net" ] }
+    ]
   },
   {
     "id": "windows-temp",

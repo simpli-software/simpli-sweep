@@ -199,6 +199,9 @@ public sealed class SafetyTests : IDisposable
     [InlineData("""[{"id":"a","name":"a","targets":[{"path":"%TEMP%\\..\\.."}]}]""")]
     [InlineData("""[{"id":"a","name":"a","targets":[{"path":"%TEMP%","patterns":["..\\*"]}]}]""")]
     [InlineData("""[{"id":"a","name":"a","targets":[]}]""")]
+    [InlineData("""[{"id":"a","name":"a","targets":[{"path":"%TEMP%","skipFolders":["a\\b"]}]}]""")]
+    [InlineData("""[{"id":"a","name":"a","targets":[{"path":"%TEMP%","skipFolders":[".."]}]}]""")]
+    [InlineData("""[{"id":"a","name":"a","targets":[{"path":"%TEMP%","skipFolders":["*"]}]}]""")]
     [InlineData("""[{"id":"a","name":"a","targets":[{"path":"%TEMP%"}]},{"id":"a","name":"b","targets":[{"path":"%TEMP%"}]}]""")]
     public void Unsafe_rule_files_are_rejected(string json)
     {

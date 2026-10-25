@@ -61,7 +61,10 @@ static string SettingsFolder()
 static int Scan()
 {
     var (_, scanner, _) = Engine();
-    scanner.Options = new SettingsStore(SettingsFolder()).Load().ToScanOptions();
+    var store = new SettingsStore(SettingsFolder());
+    scanner.Options = store.Load().ToScanOptions();
+    if (store.BlocksCleaning)
+        WarnSettingsNeedReview();
     var report = scanner.Scan(RuleLoader.LoadBuiltIn());
 
     foreach (var r in report.Results)
@@ -151,6 +154,9 @@ static void WriteText(CleanJobResult result)
         return;
     }
 
+    if (result.SettingsNeedReview)
+        WarnSettingsNeedReview();
+
     foreach (var r in result.Scan.Results)
     {
         var cleaned = result.Clean?.Results.FirstOrDefault(c => c.RuleId == r.Rule.Id);
@@ -168,12 +174,17 @@ static void WriteText(CleanJobResult result)
 }
 
 // Counts and sizes only: never paths or file names.
+static void WarnSettingsNeedReview() =>
+    Console.Error.WriteLine("Warning: your settings file couldn't be read, so 'clean --yes' would refuse to clean. "
+        + "Open the app and check the Settings tab.");
+
 static void WriteJson(CleanJobResult result, CleanPreset preset)
 {
     var payload = new
     {
         outcome = result.Outcome.ToString(),
         preset = preset.ToString(),
+        settingsNeedReview = result.SettingsNeedReview,
         bytesFound = result.Scan.TotalBytes,
         bytesFreed = result.Clean?.BytesFreed ?? 0,
         deleted = result.Clean?.Deleted ?? 0,

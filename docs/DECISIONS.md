@@ -30,7 +30,7 @@ services; this is a local Windows desktop app with no backend, tenants, database
 - **Why:** SCOPE.md §7 asks for a restore point before system-level actions. Restore points do not
   cover temp/cache files, take minutes, and Windows allows one per 24 h, so they add delay without
   protecting anything here. They will be created before v2 system changes (DISM cleanup, tweaks).
-- **Needs:** Dale's OK.
+- **Approved by:** Dale, 2026-10-24 (no preference; went with the recommendation).
 
 ## 2026-10-24: Built-in WPF Fluent theme instead of WPF-UI
 - **Why:** .NET 10 WPF ships a Windows 11 theme (`ThemeMode="System"`, light/dark aware); no extra
@@ -41,3 +41,22 @@ services; this is a local Windows desktop app with no backend, tenants, database
   each file once needs an open + file-ID lookup per file, which would make a 3.5M-file scan many
   times slower. Instead the Disk tab explains that Windows folders look bigger than the space they
   use and warns against deleting from them by hand. Revisit if users find it confusing.
+
+## 2026-10-24: Release packaging (M5 parts 1–2)
+- **Self-contained single-file, compressed**: no .NET runtime needed on the user's PC. Costs size
+  (app ~62 MB, CLI ~36 MB, zip ~87 MB); WPF can't be trimmed. Framework-dependent builds would be
+  ~1 MB but fail to start on PCs without the .NET 10 Desktop Runtime.
+- **Inno Setup 7** installer, per-user by default with an all-users option; no admin needed to
+  install. Settings in %LOCALAPPDATA% are kept on uninstall. The CLI is installed next to the app
+  but not added to PATH (README shows the full path).
+- **Draft releases only**: a tag builds the files and makes a draft; a person publishes it. The tag
+  must be on `main` and match `<Version>`, and the tests run again first. Versions are numbers only
+  (no `-beta` suffixes) because the installer's file version requires it.
+- **`%TEMP%\.net` is never cleaned**: single-file .NET apps (this one too) unpack native files there
+  and reuse them at every start; cleaning them only makes the next start slower.
+- **Tools pinned by hash**: gitleaks runs from its release binary (gitleaks-action needs a paid
+  licence for org repos) and the Inno Setup download is checked against a SHA-256, like the
+  SHA-pinned actions. Dependabot doesn't update these two; bump them by hand.
+- **No simpli-guard security workflow yet**: it needs the ANTHROPIC_API_KEY repo secret. Add it
+  together with signing (M5 part 3).
+- Builds are **unsigned** until M5 part 3, so SmartScreen will warn.

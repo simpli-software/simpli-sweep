@@ -51,6 +51,8 @@ public static class RuleLoader
                     throw new InvalidDataException($"Rule '{rule.Id}': '..' is not allowed in target paths.");
                 if (t.Patterns.Count == 0 || t.Patterns.Any(p => p.Contains('\\') || p.Contains('/') || p.Contains("..")))
                     throw new InvalidDataException($"Rule '{rule.Id}': patterns must be file-name patterns only.");
+                if (t.SkipFolders.Any(f => f.Length == 0 || f.Trim('.').Length == 0 || f.IndexOfAny(['\\', '/', '*', '?', ':']) >= 0))
+                    throw new InvalidDataException($"Rule '{rule.Id}': skipFolders must be plain folder names.");
                 if (t.MinAgeHours < 0)
                     throw new InvalidDataException($"Rule '{rule.Id}': minAgeHours cannot be negative.");
             }
