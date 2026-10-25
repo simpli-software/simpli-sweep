@@ -18,6 +18,25 @@ public interface IElevation
     bool RestartElevated();
 }
 
+public interface IShell
+{
+    /// <summary>Opens File Explorer with the item selected.</summary>
+    void ShowInExplorer(string path);
+}
+
+public sealed class WindowsShell : IShell
+{
+    public void ShowInExplorer(string path)
+    {
+        // Windows paths can't contain quotes, so quoting is enough to keep this one argument.
+        if (path.Contains('"'))
+            return;
+        // Full path: never pick up an explorer.exe planted next to a portable copy of the app.
+        var explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+        Process.Start(new ProcessStartInfo(explorer, $"/select,\"{path}\"") { UseShellExecute = false })?.Dispose();
+    }
+}
+
 public sealed class DialogService : IDialogService
 {
     public bool Confirm(string title, string message) =>

@@ -32,6 +32,11 @@ dotnet run --project src/Cleaner.Cli -- scan
 
 Lists what would be freed per category. Deletes nothing.
 
+```
+dotnet run --project src/Cleaner.Cli -- disk C:\n```
+
+Shows the largest folders and files on a drive. Read-only.
+
 ## Build and test
 
 Requires the .NET 10 SDK.

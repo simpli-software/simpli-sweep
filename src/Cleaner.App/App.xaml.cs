@@ -3,6 +3,7 @@ using System.Windows;
 using Cleaner.App.Services;
 using Cleaner.App.ViewModels;
 using Cleaner.Core;
+using Cleaner.Core.DiskUsage;
 using Cleaner.Core.Startup;
 
 namespace Cleaner.App;
@@ -41,6 +42,7 @@ public partial class App : Application
                 new StartupManager(new WindowsRegistryStore(), tokens, new WindowsShortcutResolver(), TimeProvider.System),
                 new WindowsFileTrust(),
                 elevation.IsElevated),
+            Disk = new DiskUsageViewModel(new DiskUsageScanner(), new WindowsShell(), FixedDrives(), tokens["WINDIR"]),
         };
 
         var window = new MainWindow { DataContext = viewModel };
@@ -49,4 +51,10 @@ public partial class App : Application
         _ = viewModel.ScanAsync();
         _ = viewModel.Startup.LoadAsync();
     }
+
+    private static List<DriveChoice> FixedDrives() =>
+        DriveInfo.GetDrives()
+            .Where(d => d.DriveType == DriveType.Fixed && d.IsReady)
+            .Select(d => new DriveChoice(d.RootDirectory.FullName, d.VolumeLabel, d.AvailableFreeSpace, d.TotalSize))
+            .ToList();
 }

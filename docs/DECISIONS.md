@@ -35,3 +35,9 @@ services; this is a local Windows desktop app with no backend, tenants, database
 ## 2026-10-24: Built-in WPF Fluent theme instead of WPF-UI
 - **Why:** .NET 10 WPF ships a Windows 11 theme (`ThemeMode="System"`, light/dark aware); no extra
   dependency. It is flagged experimental (WPF0001, suppressed in the app project).
+
+## 2026-10-24: Disk view counts hard-linked files once per link (with a note)
+- **Why:** Windows (WinSxS, System32) lists one file in several folders via hard links. Counting
+  each file once needs an open + file-ID lookup per file, which would make a 3.5M-file scan many
+  times slower. Instead the Disk tab explains that Windows folders look bigger than the space they
+  use and warns against deleting from them by hand. Revisit if users find it confusing.

@@ -14,14 +14,17 @@
   - `SafeDelete.cs` — handle-based delete (checks the opened object's real path) + process hardening.
   - `Startup/` — startup manager: lists Run keys and Startup folders; on/off via the Explorer
     `StartupApproved` flag (same as Task Manager), never edits or deletes entries.
-    `FileTrust.cs` reads publisher + Authenticode status (offline) and resolves .lnk targets.
+    `FileTrust.cs` reads publisher + Authenticode status (embedded, then catalog; offline) and resolves .lnk targets.
+  - `DiskUsage/DiskUsageScanner.cs` — read-only folder-size tree + top-N largest files; parallel to depth 4;
+    skips junctions and cloud-only placeholders.
 - `src/Cleaner.App/` — WPF app (built-in Fluent theme, MVVM, no UI library).
   - `App.xaml.cs` — composition root; product name read from the `<Product>` build setting.
   - `ViewModels/MainViewModel.cs` — scan, selection, confirm-then-clean, restart as admin.
   - `ViewModels/RuleItemViewModel.cs` — one category row; only rows with something to clean can be ticked.
   - `Services/Services.cs` — dialogs and elevation behind interfaces (faked in tests).
   - `ViewModels/StartupViewModel.cs` — Startup tab: list, on/off switches, admin-only items locked.
-- `src/Cleaner.Cli/` — `cleaner scan` dry run (cleaning from the CLI in M4).
+  - `ViewModels/DiskUsageViewModel.cs` — Disk tab: drive picker, drill-down folder list, largest files, Show in Explorer.
+- `src/Cleaner.Cli/` — `cleaner scan` dry run, `cleaner disk <path>` sizes (cleaning from the CLI in M4).
 - `tests/Cleaner.Core.Tests/` — `FakeMachine` builds a fake Windows tree per test.
   - `SafetyTests.cs` — guard, junction, locking and timing tests.
   - `BuiltInRuleTests.cs` — one `Rule_<id>` test per built-in rule (enforced by a test).
