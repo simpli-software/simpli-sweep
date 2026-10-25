@@ -54,6 +54,22 @@ public sealed class SettingsStore
 
     public string DamagedCopyPath => _path + ".bad";
 
+    /// <summary>
+    /// A damaged file is waiting for the user to check their settings. Stays true across restarts
+    /// until <see cref="MarkReviewed"/> is called.
+    /// </summary>
+    public bool NeedsReview => File.Exists(DamagedCopyPath);
+
+    /// <summary>The user has checked their settings: keep the damaged copy under a dated name.</summary>
+    public void MarkReviewed()
+    {
+        if (File.Exists(DamagedCopyPath))
+            File.Move(DamagedCopyPath, ArchiveName(), overwrite: false);
+    }
+
+    private string ArchiveName() =>
+        $"{DamagedCopyPath}-{DateTime.UtcNow:yyyyMMdd'T'HHmmss'Z'}-{Guid.NewGuid().ToString("N")[..8]}";
+
     private bool _damagedFileInPlace;
 
     public AppSettings Load()
@@ -86,7 +102,13 @@ public sealed class SettingsStore
             // Any problem with the file: set it aside so the user's exclusions can be recovered,
             // and start from defaults. Saving later can never overwrite the damaged copy.
             LoadedDefaultsAfterError = true;
-            try { File.Move(_path, DamagedCopyPath, overwrite: true); }
+            // An earlier damaged copy the user hasn't reviewed yet is kept under a dated name, not replaced.
+            try
+            {
+                if (File.Exists(DamagedCopyPath))
+                    File.Move(DamagedCopyPath, ArchiveName(), overwrite: false);
+                File.Move(_path, DamagedCopyPath, overwrite: false);
+            }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _damagedFileInPlace = true; }
             return new AppSettings();
         }

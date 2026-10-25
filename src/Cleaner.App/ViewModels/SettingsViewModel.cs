@@ -21,9 +21,10 @@ public sealed class SettingsViewModel : ObservableObject
         _store = store;
         _folders = folders;
         _current = store.Load();
-        NeedsReview = store.LoadedDefaultsAfterError;
+        NeedsReview = store.LoadedDefaultsAfterError || store.NeedsReview;
+        ReviewMessage = DamagedMessage(store);
         if (NeedsReview)
-            _status = DamagedMessage(store);
+            _status = ReviewMessage;
 
         var choices = new List<AgeChoice>
         {
@@ -71,8 +72,23 @@ public sealed class SettingsViewModel : ObservableObject
         + "are not applied. The old file was kept as " + Path.GetFileName(store.DamagedCopyPath) + ". "
         + "Check the Settings tab before cleaning.";
 
+    /// <summary>Fixed banner text (Status changes with every save).</summary>
+    public string ReviewMessage { get; }
+
     /// <summary>The user has reviewed the settings after a damaged file.</summary>
-    public void AcknowledgeReview() => NeedsReview = false;
+    public void AcknowledgeReview()
+    {
+        try
+        {
+            _store.MarkReviewed();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Still let them clean this session; the warning returns next launch.
+            Status = "Couldn't file away the old settings copy: " + e.Message;
+        }
+        NeedsReview = false;
+    }
     public IReadOnlyList<AgeChoice> AgeChoices { get; }
     public ObservableCollection<string> ExcludedFolders { get; } = [];
     public ObservableCollection<string> ExcludedPatterns { get; } = [];

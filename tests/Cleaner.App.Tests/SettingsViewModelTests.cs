@@ -132,6 +132,29 @@ public sealed class SettingsViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Damaged_settings_warning_survives_a_restart_until_acknowledged()
+    {
+        Directory.CreateDirectory(SettingsFolder);
+        File.WriteAllText(Path.Combine(SettingsFolder, "settings.json"), "{ not json");
+        _m.File(Path.Combine(_m.Temp, "a.tmp"));
+
+        var first = Main(Settings());
+        await first.ScanAsync();
+        first.Items.Single().IsSelected = false; // a save in the first session
+        first.Items.Single().IsSelected = true;
+
+        var second = Main(Settings()); // "restart" without acknowledging
+        await second.ScanAsync();
+        Assert.True(second.SettingsNeedReview);
+        Assert.False(second.CleanCommand.CanExecute(null));
+
+        second.AcknowledgeSettingsCommand.Execute(null);
+        var third = Main(Settings());
+        Assert.False(third.SettingsNeedReview);
+        Assert.Single(Directory.GetFiles(SettingsFolder, "settings.json.bad-*"));
+    }
+
+    [Fact]
     public async Task List_cleared_while_confirming_is_not_cleaned()
     {
         var file = _m.File(Path.Combine(_m.Temp, "Keep", "a.tmp"));
