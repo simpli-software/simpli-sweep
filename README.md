@@ -3,7 +3,8 @@
 A free, open-source Windows 10/11 cleaner. No ads, no upsell, no telemetry.
 It shows you exactly what it will remove before it removes anything.
 
-> Status: early development (M1 engine and M2 window done). Not ready for general use.
+> Status: pre-release (v0.1.0). Builds are not code-signed yet, so Windows SmartScreen warns on first run.
+> See the [code signing policy](#code-signing-policy).
 
 ## What it cleans (v1)
 
@@ -21,6 +22,7 @@ or anything that phones home.
 Download the installer or the portable zip from the latest release. The installer installs for
 your account only unless you pick "all users" on its first page; it remembers that choice on
 upgrades. Switching between the two leaves two copies, so uninstall the old one first.
+To uninstall, use Settings → Apps → Installed apps (the portable zip: delete the folder).
 Uninstalling keeps your settings and exclusions.
 
 ## Run it from source
@@ -92,6 +94,24 @@ the build fails otherwise. Safety guards (protected folders, no following juncti
 re-checking files at delete time) live in `SafetyGuard.cs` and `CleanRunner.cs`.
 
 See `docs/SCOPE.md` for the roadmap.
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
+[SignPath Foundation](https://signpath.org).
+
+Only the installer and executables built by this repository's GitHub Actions release workflow
+from a tag on `main` are signed, and every signing request is approved by hand.
+
+| Role | Members |
+|---|---|
+| Committers and reviewers | [Dale Kissell (@Dalekissell)](https://github.com/Dalekissell) |
+| Approvers | [Owners](https://github.com/orgs/simpli-software/people?query=role%3Aowner) |
+
+### Privacy
+
+This program will not transfer any information to other networked systems unless specifically
+requested by the user or the person installing or operating it.
 
 ## License
 
