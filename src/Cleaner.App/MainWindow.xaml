@@ -6,7 +6,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
-        Width="760" Height="640" MinWidth="520" MinHeight="420"
+        Width="800" Height="680" MinWidth="560" MinHeight="460"
         WindowStartupLocation="CenterScreen">
 
   <Window.Resources>
@@ -21,76 +21,135 @@
   <Grid Margin="24,16,24,20">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
-      <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
-      <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
     <!-- Header -->
-    <DockPanel Grid.Row="0" Margin="0,0,0,12">
-      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-        <Button Content="Restart as administrator" Margin="0,0,8,0"
-                Command="{Binding RestartAsAdminCommand}"
-                Visibility="{Binding NeedsAdmin, Converter={StaticResource BoolToVis}}"
-                ToolTip="Some Windows categories can only be cleaned with administrator rights." />
-        <Button Content="Scan again" Command="{Binding ScanCommand}" />
-      </StackPanel>
+    <DockPanel Grid.Row="0" Margin="0,0,0,8">
+      <Button DockPanel.Dock="Right" VerticalAlignment="Center" Content="Restart as administrator"
+              Command="{Binding RestartAsAdminCommand}"
+              Visibility="{Binding NeedsAdmin, Converter={StaticResource BoolToVis}}"
+              ToolTip="Some Windows categories and all-users startup programs can only be changed with administrator rights." />
       <StackPanel>
         <TextBlock x:Name="TitleText" FontSize="24" FontWeight="SemiBold" />
         <TextBlock Text="Free up space safely. You see everything before it is deleted." Opacity="0.75" />
       </StackPanel>
     </DockPanel>
 
-    <ProgressBar Grid.Row="1" Height="4" Margin="0,0,0,8" IsIndeterminate="True"
-                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+    <TabControl Grid.Row="1">
+      <!-- Clean -->
+      <TabItem Header="Clean">
+        <Grid Margin="0,12,0,0">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
 
-    <!-- Categories -->
-    <ListBox Grid.Row="2" ItemsSource="{Binding Source={StaticResource Grouped}}"
-             HorizontalContentAlignment="Stretch"
-             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-             AutomationProperties.Name="Cleaning categories">
-      <ListBox.GroupStyle>
-        <GroupStyle>
-          <GroupStyle.HeaderTemplate>
-            <DataTemplate>
-              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15" Margin="4,12,0,4" />
-            </DataTemplate>
-          </GroupStyle.HeaderTemplate>
-        </GroupStyle>
-      </ListBox.GroupStyle>
-      <ListBox.ItemTemplate>
-        <DataTemplate DataType="{x:Type vm:RuleItemViewModel}">
-          <Grid Margin="0,4">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <CheckBox Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"
-                      IsChecked="{Binding IsSelected}" IsEnabled="{Binding CanSelect}"
-                      AutomationProperties.Name="{Binding Name}" />
-            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-              <TextBlock Text="{Binding Name}" />
-              <TextBlock Text="{Binding Description}" Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
-            </StackPanel>
-            <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="12,0,4,0">
-              <TextBlock Text="{Binding SizeText}" FontWeight="SemiBold" HorizontalAlignment="Right" />
-              <TextBlock Text="{Binding DetailText}" Opacity="0.7" FontSize="12" HorizontalAlignment="Right" />
-            </StackPanel>
-          </Grid>
-        </DataTemplate>
-      </ListBox.ItemTemplate>
-    </ListBox>
+          <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <Button DockPanel.Dock="Right" Content="Scan again" Command="{Binding ScanCommand}" />
+            <ProgressBar Height="4" Margin="0,0,12,0" VerticalAlignment="Center" IsIndeterminate="True"
+                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+          </DockPanel>
 
-    <!-- Footer -->
-    <DockPanel Grid.Row="3" Margin="0,16,0,0">
-      <Button DockPanel.Dock="Right" Content="Clean" MinWidth="120" Padding="16,6"
-              Style="{DynamicResource AccentButtonStyle}"
-              Command="{Binding CleanCommand}" />
-      <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedText}" FontWeight="SemiBold"
-                 VerticalAlignment="Center" Margin="12,0" />
-      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" VerticalAlignment="Center"
-                 AutomationProperties.LiveSetting="Polite" />
-    </DockPanel>
+          <ListBox Grid.Row="1" ItemsSource="{Binding Source={StaticResource Grouped}}"
+                   HorizontalContentAlignment="Stretch"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   AutomationProperties.Name="Cleaning categories">
+            <ListBox.GroupStyle>
+              <GroupStyle>
+                <GroupStyle.HeaderTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15" Margin="4,12,0,4" />
+                  </DataTemplate>
+                </GroupStyle.HeaderTemplate>
+              </GroupStyle>
+            </ListBox.GroupStyle>
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:RuleItemViewModel}">
+                <Grid Margin="0,4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <CheckBox Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"
+                            IsChecked="{Binding IsSelected}" IsEnabled="{Binding CanSelect}"
+                            AutomationProperties.Name="{Binding Name}" />
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" />
+                    <TextBlock Text="{Binding Description}" Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="12,0,4,0">
+                    <TextBlock Text="{Binding SizeText}" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                    <TextBlock Text="{Binding DetailText}" Opacity="0.7" FontSize="12" HorizontalAlignment="Right" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <DockPanel Grid.Row="2" Margin="0,16,0,0">
+            <Button DockPanel.Dock="Right" Content="Clean" MinWidth="120" Padding="16,6"
+                    Style="{DynamicResource AccentButtonStyle}"
+                    Command="{Binding CleanCommand}" />
+            <TextBlock DockPanel.Dock="Right" Text="{Binding SelectedText}" FontWeight="SemiBold"
+                       VerticalAlignment="Center" Margin="12,0" />
+            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" VerticalAlignment="Center"
+                       AutomationProperties.LiveSetting="Polite" />
+          </DockPanel>
+        </Grid>
+      </TabItem>
+
+      <!-- Startup -->
+      <TabItem Header="Startup" DataContext="{Binding Startup}">
+        <Grid Margin="0,12,0,0">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshCommand}" />
+            <TextBlock Text="Programs that start when you sign in. Fewer means a faster start."
+                       VerticalAlignment="Center" Opacity="0.75" TextWrapping="Wrap" />
+          </DockPanel>
+
+          <ListBox Grid.Row="1" ItemsSource="{Binding Items}"
+                   HorizontalContentAlignment="Stretch"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   AutomationProperties.Name="Startup programs">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:StartupItemViewModel}">
+                <Grid Margin="0,4" ToolTip="{Binding Command}">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" />
+                    <TextBlock Opacity="0.7" FontSize="12" TextTrimming="CharacterEllipsis">
+                      <Run Text="{Binding Publisher, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Location, Mode=OneWay}" />
+                    </TextBlock>
+                    <TextBlock Text="{Binding SignatureText}" FontSize="12" Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                               Visibility="{Binding NeedsAttention, Converter={StaticResource BoolToVis}}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,4,0">
+                    <TextBlock Text="{Binding AdminNote}" Opacity="0.7" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <CheckBox IsChecked="{Binding IsEnabled}" IsEnabled="{Binding CanToggle}"
+                              Content="Starts with Windows"
+                              AutomationProperties.Name="{Binding Name}" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <TextBlock Grid.Row="2" Margin="0,16,0,0" Text="{Binding Status}" TextWrapping="Wrap"
+                     AutomationProperties.LiveSetting="Polite" />
+        </Grid>
+      </TabItem>
+    </TabControl>
   </Grid>
 </Window>
