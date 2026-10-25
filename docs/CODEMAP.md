@@ -2,7 +2,7 @@
 
 ## Layout
 - `src/Cleaner.Core/` — engine, no UI. Shared by the CLI, the app and the tests.
-  - `CleanRule.cs` — rule/target records (loaded from JSON).
+  - `CleanRule.cs` — rule/target records (loaded from JSON). `skipFolders`: top-level folders a target never enters.
   - `Rules/*.json` — built-in rules, embedded in the assembly.
   - `RuleLoader.cs` — loads embedded rules; `Validate` rejects unsafe rule files.
   - `PathTokens.cs` — the fixed token set rules may use (%TEMP%, %LOCALAPPDATA%, …).

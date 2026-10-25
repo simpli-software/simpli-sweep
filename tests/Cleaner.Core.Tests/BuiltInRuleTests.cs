@@ -49,11 +49,15 @@ public sealed class BuiltInRuleTests : IDisposable
     {
         var old = _m.File(Path.Combine(_m.Temp, "x", "old.tmp"), ageHours: 30);
         var fresh = _m.File(Path.Combine(_m.Temp, "new.tmp"), ageHours: 2);
+        var unpacked = _m.File(Path.Combine(_m.Temp, ".net", "SimpliSweep", "abc", "wpfgfx_cor3.dll"), ageHours: 30);
+        var nestedNet = _m.File(Path.Combine(_m.Temp, "x", ".net", "old.tmp"), ageHours: 30);
 
         _m.Run(R("user-temp"));
 
         Assert.False(File.Exists(old));
         Assert.True(File.Exists(fresh));
+        Assert.True(File.Exists(unpacked));
+        Assert.False(File.Exists(nestedNet)); // only the top-level .net folder is skipped
         Assert.True(Directory.Exists(_m.Temp));
     }
 

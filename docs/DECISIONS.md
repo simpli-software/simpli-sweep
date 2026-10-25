@@ -49,7 +49,11 @@ services; this is a local Windows desktop app with no backend, tenants, database
 - **Inno Setup 7** installer, per-user by default with an all-users option; no admin needed to
   install. Settings in %LOCALAPPDATA% are kept on uninstall. The CLI is installed next to the app
   but not added to PATH (README shows the full path).
-- **Draft releases only**: a tag builds the files and makes a draft; a person publishes it.
+- **Draft releases only**: a tag builds the files and makes a draft; a person publishes it. The tag
+  must be on `main` and match `<Version>`, and the tests run again first. Versions are numbers only
+  (no `-beta` suffixes) because the installer's file version requires it.
+- **`%TEMP%\.net` is never cleaned**: single-file .NET apps (this one too) unpack native files there
+  and reuse them at every start; cleaning them only makes the next start slower.
 - **Tools pinned by hash**: gitleaks runs from its release binary (gitleaks-action needs a paid
   licence for org repos) and the Inno Setup download is checked against a SHA-256, like the
   SHA-pinned actions. Dependabot doesn't update these two; bump them by hand.

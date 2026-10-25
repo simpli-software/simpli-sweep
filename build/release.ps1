@@ -35,6 +35,10 @@ $appExe = (Get-BuildProperty $appProject 'AssemblyName') + '.exe'
 $cliExe = (Get-BuildProperty $cliProject 'AssemblyName') + '.exe'
 $fileBase = $product -replace '[^A-Za-z0-9]', ''
 
+# The installer's file version (VersionInfoVersion) only takes numbers, so no pre-release suffixes.
+if ($version -notmatch '^\d+\.\d+\.\d+$') {
+    throw "Version '$version' must be MAJOR.MINOR.PATCH (numbers only)"
+}
 if ($ExpectVersion -and $ExpectVersion -ne $version) {
     throw "Tag says $ExpectVersion but Directory.Build.props says $version"
 }

@@ -66,7 +66,7 @@ public sealed class CleanJob
     {
         var hasSettings = _settings.Exists;
         var settings = _settings.Load();
-        var needsReview = _settings.LoadedDefaultsAfterError || _settings.NeedsReview;
+        var needsReview = _settings.BlocksCleaning;
         var rules = SelectRules(allRules, options, settings);
 
         _scanner.Options = settings.ToScanOptions();

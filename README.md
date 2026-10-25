@@ -16,7 +16,14 @@ Edge, Chrome, Brave and Firefox. Cookies, history and saved logins are never tou
 Registry "cleaning", RAM boosting, driver updates, disabling Defender or Windows Update,
 or anything that phones home.
 
-## Run it
+## Install
+
+Download the installer or the portable zip from the latest release. The installer installs for
+your account only unless you pick "all users" on its first page; it remembers that choice on
+upgrades. Switching between the two leaves two copies, so uninstall the old one first.
+Uninstalling keeps your settings and exclusions.
+
+## Run it from source
 
 ```
 dotnet run --project src/Cleaner.App

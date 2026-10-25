@@ -121,7 +121,9 @@ public sealed class Scanner
             {
                 if (entry is DirectoryInfo sub)
                 {
-                    if (target.Recursive)
+                    var skipped = ReferenceEquals(dir, root)
+                        && target.SkipFolders.Contains(sub.Name, StringComparer.OrdinalIgnoreCase);
+                    if (target.Recursive && !skipped)
                         pending.Push(sub.FullName);
                     continue;
                 }
