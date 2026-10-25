@@ -21,8 +21,9 @@ public sealed class SettingsViewModel : ObservableObject
         _store = store;
         _folders = folders;
         _current = store.Load();
-        if (store.LoadedDefaultsAfterError)
-            _status = "The settings file was damaged, so defaults are in use. Changing anything saves a fresh copy.";
+        NeedsReview = store.LoadedDefaultsAfterError;
+        if (NeedsReview)
+            _status = DamagedMessage(store);
 
         var choices = new List<AgeChoice>
         {
@@ -55,6 +56,23 @@ public sealed class SettingsViewModel : ObservableObject
     public event EventHandler? OptionsChanged;
 
     public AppSettings Current => _current;
+
+    /// <summary>The settings file was damaged: exclusions may be missing until the user checks them.</summary>
+    public bool NeedsReview
+    {
+        get => _needsReview;
+        private set => Set(ref _needsReview, value);
+    }
+
+    private bool _needsReview;
+
+    public static string DamagedMessage(SettingsStore store) =>
+        "Your settings file couldn't be read, so default settings are in use and any excluded folders or file names "
+        + "are not applied. The old file was kept as " + Path.GetFileName(store.DamagedCopyPath) + ". "
+        + "Check the Settings tab before cleaning.";
+
+    /// <summary>The user has reviewed the settings after a damaged file.</summary>
+    public void AcknowledgeReview() => NeedsReview = false;
     public IReadOnlyList<AgeChoice> AgeChoices { get; }
     public ObservableCollection<string> ExcludedFolders { get; } = [];
     public ObservableCollection<string> ExcludedPatterns { get; } = [];

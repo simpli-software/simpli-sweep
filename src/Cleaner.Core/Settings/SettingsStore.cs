@@ -14,15 +14,24 @@ public sealed record AppSettings
     public List<string> ExcludedPatterns { get; init; } = [];
 
     public bool IsSelected(CleanRule rule) =>
-        SelectedRules.TryGetValue(rule.Id, out var selected) ? selected : rule.EnabledByDefault;
+        SelectedRules is not null && SelectedRules.TryGetValue(rule.Id, out var selected) ? selected : rule.EnabledByDefault;
 
     /// <summary>Drops invalid entries so a hand-edited file can never loosen anything.</summary>
     public ScanOptions ToScanOptions() => new()
     {
         MinimumAgeHours = double.IsFinite(MinimumAgeHours) ? Math.Clamp(MinimumAgeHours, 0, 24 * 3650) : 0,
-        ExcludedFolders = ExcludedFolders.Where(f => ScanOptions.ValidateFolder(f) is null).ToList(),
-        ExcludedPatterns = ExcludedPatterns.Where(p => ScanOptions.ValidatePattern(p) is null).ToList(),
+        ExcludedFolders = (ExcludedFolders ?? []).Select(NormalizeFolder).OfType<string>().ToList(),
+        ExcludedPatterns = (ExcludedPatterns ?? []).Where(p => ScanOptions.ValidatePattern(p) is null).ToList(),
     };
+
+    /// <summary>Full, canonical form so "C:/a/../Projects" matches scanned paths; null if unusable.</summary>
+    private static string? NormalizeFolder(string? folder)
+    {
+        if (folder is null || ScanOptions.ValidateFolder(folder) is not null)
+            return null;
+        try { return Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)); }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException) { return null; }
+    }
 }
 
 /// <summary>Reads and writes settings.json in the app's own folder under %LOCALAPPDATA%.</summary>
@@ -37,8 +46,15 @@ public sealed class SettingsStore
         _path = Path.Combine(folder, "settings.json");
     }
 
-    /// <summary>True if the last <see cref="Load"/> found a damaged file and fell back to defaults.</summary>
+    /// <summary>
+    /// True if the last <see cref="Load"/> found a damaged file. It is moved aside to settings.json.bad
+    /// (never overwritten) and defaults are used.
+    /// </summary>
     public bool LoadedDefaultsAfterError { get; private set; }
+
+    public string DamagedCopyPath => _path + ".bad";
+
+    private bool _damagedFileInPlace;
 
     public AppSettings Load()
     {
@@ -49,12 +65,29 @@ public sealed class SettingsStore
         try
         {
             var loaded = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(_path), Json) ?? new AppSettings();
-            // Keep id lookups case-insensitive whatever the file contained.
-            return loaded with { SelectedRules = new Dictionary<string, bool>(loaded.SelectedRules, StringComparer.OrdinalIgnoreCase) };
+
+            // Keep id lookups case-insensitive whatever the file contained; on a clash, "off" wins.
+            var rules = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (id, selected) in loaded.SelectedRules ?? [])
+            {
+                if (id is not null && !rules.TryAdd(id, selected))
+                    rules[id] &= selected;
+            }
+
+            return loaded with
+            {
+                SelectedRules = rules,
+                ExcludedFolders = loaded.ExcludedFolders ?? [],
+                ExcludedPatterns = loaded.ExcludedPatterns ?? [],
+            };
         }
-        catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException or NotSupportedException)
+        catch (Exception)
         {
+            // Any problem with the file: set it aside so the user's exclusions can be recovered,
+            // and start from defaults. Saving later can never overwrite the damaged copy.
             LoadedDefaultsAfterError = true;
+            try { File.Move(_path, DamagedCopyPath, overwrite: true); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _damagedFileInPlace = true; }
             return new AppSettings();
         }
     }
@@ -62,6 +95,9 @@ public sealed class SettingsStore
     /// <summary>Writes to a temporary file first, so a crash mid-save never leaves a half-written file.</summary>
     public void Save(AppSettings settings)
     {
+        if (_damagedFileInPlace)
+            throw new IOException("The damaged settings file couldn't be set aside, so it won't be overwritten.");
+
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
         var temp = _path + ".tmp";
         File.WriteAllText(temp, JsonSerializer.Serialize(settings, Json));

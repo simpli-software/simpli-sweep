@@ -15,8 +15,13 @@ public sealed class CleanRunner
     }
 
     /// <param name="selectedRuleIds">Only rules the user explicitly ticked are cleaned.</param>
-    public CleanReport Clean(ScanReport scan, IReadOnlySet<string> selectedRuleIds, CancellationToken ct = default)
+    /// <param name="currentOptions">
+    /// Settings in force now. If they changed after the scan, the stricter of the two sets applies,
+    /// so an exclusion added mid-scan is still honoured.
+    /// </param>
+    public CleanReport Clean(ScanReport scan, IReadOnlySet<string> selectedRuleIds, Settings.ScanOptions? currentOptions = null, CancellationToken ct = default)
     {
+        var options = currentOptions is null ? scan.Options : Settings.ScanOptions.Strictest(scan.Options, currentOptions);
         var results = new List<RuleCleanResult>();
 
         foreach (var result in scan.Results)
@@ -26,7 +31,7 @@ public sealed class CleanRunner
 
             results.Add(result.Rule.Kind == RuleKind.RecycleBin
                 ? CleanRecycleBin(result)
-                : CleanFiles(result, scan.Options, ct));
+                : CleanFiles(result, options, ct));
         }
 
         return new CleanReport(results);
@@ -99,7 +104,7 @@ public sealed class CleanRunner
             && _guard.IsAllowedFile(realPath, realRoot)
             && !options.IsExcluded(realPath)                          // exclusions match the real location too
             && lastWriteUtc == file.LastWriteUtc                      // unchanged since the scan
-            && lastWriteUtc <= now.AddHours(-file.MinAgeHours));     // still old enough
+            && lastWriteUtc <= now.AddHours(-options.EffectiveMinAge(file.MinAgeHours))); // still old enough
     }
 
     private void RemoveEmptyDirs(string root, string realRoot)

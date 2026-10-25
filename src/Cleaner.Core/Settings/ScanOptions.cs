@@ -21,6 +21,14 @@ public sealed record ScanOptions
 
     public double EffectiveMinAge(double ruleMinAgeHours) => Math.Max(ruleMinAgeHours, Math.Max(0, MinimumAgeHours));
 
+    /// <summary>The stricter of two option sets: the longer minimum age and every exclusion from both.</summary>
+    public static ScanOptions Strictest(ScanOptions a, ScanOptions b) => new()
+    {
+        MinimumAgeHours = Math.Max(a.MinimumAgeHours, b.MinimumAgeHours),
+        ExcludedFolders = [.. a.ExcludedFolders.Concat(b.ExcludedFolders).Distinct(StringComparer.OrdinalIgnoreCase)],
+        ExcludedPatterns = [.. a.ExcludedPatterns.Concat(b.ExcludedPatterns).Distinct(StringComparer.OrdinalIgnoreCase)],
+    };
+
     /// <summary>True if the file at <paramref name="path"/> must be left alone.</summary>
     public bool IsExcluded(string path)
     {

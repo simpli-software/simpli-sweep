@@ -112,6 +112,40 @@ public sealed class SettingsViewModelTests : IDisposable
         Assert.True(File.Exists(keep));
     }
 
+    [Fact]
+    public async Task Damaged_settings_keep_Clean_off_until_the_user_has_checked()
+    {
+        Directory.CreateDirectory(SettingsFolder);
+        File.WriteAllText(Path.Combine(SettingsFolder, "settings.json"), "{ not json");
+        _m.File(Path.Combine(_m.Temp, "a.tmp"));
+        var main = Main(Settings());
+        await main.ScanAsync();
+
+        Assert.True(main.SettingsNeedReview);
+        Assert.False(main.CleanCommand.CanExecute(null));
+        Assert.Contains("settings.json.bad", main.Settings!.Status);
+
+        main.AcknowledgeSettingsCommand.Execute(null);
+
+        Assert.False(main.SettingsNeedReview);
+        Assert.True(main.CleanCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task List_cleared_while_confirming_is_not_cleaned()
+    {
+        var file = _m.File(Path.Combine(_m.Temp, "Keep", "a.tmp"));
+        var settings = Settings();
+        var main = Main(settings);
+        await main.ScanAsync();
+
+        _picker.Next = Path.Combine(_m.Temp, "Keep");
+        _dialogs.OnConfirm = () => settings.AddFolderCommand.Execute(null);
+        await main.CleanAsync();
+
+        Assert.True(File.Exists(file));
+    }
+
     private sealed class FakePicker : IFolderPicker
     {
         public string? Next { get; set; }
@@ -121,7 +155,13 @@ public sealed class SettingsViewModelTests : IDisposable
     private sealed class FakeDialogs : IDialogService
     {
         public bool Answer { get; set; }
-        public bool Confirm(string title, string message) => Answer;
+        public Action? OnConfirm { get; set; }
+
+        public bool Confirm(string title, string message)
+        {
+            OnConfirm?.Invoke();
+            return Answer;
+        }
         public void Error(string title, string message) { }
     }
 
