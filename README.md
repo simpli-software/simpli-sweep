@@ -42,7 +42,8 @@ dotnet run --project src/Cleaner.Cli -- scan
 Lists what would be freed per category. Deletes nothing.
 
 ```
-dotnet run --project src/Cleaner.Cli -- disk C:\n```
+dotnet run --project src/Cleaner.Cli -- disk C:\
+```
 
 Shows the largest folders and files on a drive. Read-only.
 
@@ -90,18 +91,33 @@ Without Inno Setup only the portable zip is built.
 
 Cleaning rules are JSON files in `src/Cleaner.Core/Rules/`. Every rule must have a test in
 `tests/Cleaner.Core.Tests/BuiltInRuleTests.cs` proving it removes only what it claims;
-the build fails otherwise. Safety guards (protected folders, no following junctions or symlinks,
+`dotnet test` fails otherwise. Safety guards (protected folders, no following junctions or symlinks,
 re-checking files at delete time) live in `SafetyGuard.cs` and `CleanRunner.cs`.
 
 See `docs/SCOPE.md` for the roadmap.
 
 ## Code signing policy
 
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
-[SignPath Foundation](https://signpath.org).
+**Release builds are not code-signed yet.** The release workflow does not sign the installer,
+the portable zip or the executables inside them.
 
-Only the installer and executables built by this repository's GitHub Actions release workflow
-from a tag on `main` are signed, and every signing request is approved by hand.
+What this means for you:
+
+- Windows SmartScreen may show "Windows protected your PC" on first run. Choose **More info**,
+  then **Run anyway**, only for a file you downloaded from this project's GitHub release page.
+- Each release attaches a `SHA256SUMS.txt` file with a SHA-256 hash for every file. To check a
+  download, compare its hash with the matching line, for example with
+  `Get-FileHash <file> -Algorithm SHA256` in PowerShell. This confirms the file is the one
+  published with that release. It does not prove who built it, because the checksum file comes
+  from the same release page.
+
+Signing is planned: code signing from [SignPath.io](https://about.signpath.io), with the
+certificate provided by the [SignPath Foundation](https://signpath.org). It is not active yet.
+When it is, this section will say so and describe which builds are signed. There is no date.
+
+The planned policy is that only the installer and executables built by this repository's GitHub
+Actions release workflow from a tag on `main` would be signed, and that every signing request
+would be approved by hand. Planned roles:
 
 | Role | Members |
 |---|---|
